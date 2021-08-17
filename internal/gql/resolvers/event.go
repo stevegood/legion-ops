@@ -2,9 +2,11 @@ package resolvers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/StarWarsDev/legion-ops/internal/orm/models/event"
 	"github.com/StarWarsDev/legion-ops/internal/orm/models/user"
@@ -37,22 +39,22 @@ func (r *queryResolver) CanModifyEvent(ctx context.Context, id string) (bool, er
 }
 
 func (r *queryResolver) Event(ctx context.Context, id string) (*models.Event, error) {
-	var eventOut *models.Event
-	err := data.NewDB(r.ORM).Transaction(func(tx *gorm.DB) error {
-		dbEvent, err := data.GetEventWithID(id, tx)
-		if err != nil {
-			return err
-		}
+	db := data.NewDB(r.ORM)
 
-		eventOut = mapper.GQLEvent(&dbEvent)
+	dbEvent, err := data.GetEventWithID(id, db)
+	if err != nil {
+		return nil, err
+	}
 
-		return nil
-	})
+	eventOut := mapper.GQLEvent(&dbEvent)
+
+	j, _ := json.Marshal(eventOut)
+	log.Println(string(j))
 
 	return eventOut, err
 }
 
-func (r *queryResolver) Events(ctx context.Context, userID *string, max *int, eventType *models.EventType, startsAfter, endsBefore *string) ([]*models.Event, error) {
+func (r *queryResolver) Events(ctx context.Context, userID *string, max *int, eventType *models.EventType, startsAfter, endsBefore *time.Time) ([]*models.Event, error) {
 	var records []*models.Event
 
 	// set some defaults and upper limits
@@ -222,33 +224,34 @@ func (r *mutationResolver) UnpublishEvent(ctx context.Context, eventID string) (
 }
 
 func (r *mutationResolver) JoinEvent(ctx context.Context, eventID string) (*models.Event, error) {
-	user := middlewares.UserInContext(ctx)
-	if user == nil || user.Username == "" {
-		// username cannot be blank, return an error
-		return nil, errors.New("cannot update event, valid user not supplied")
-	}
+	// user := middlewares.UserInContext(ctx)
+	// if user == nil || user.Username == "" {
+	// 	// username cannot be blank, return an error
+	// 	return nil, errors.New("cannot update event, valid user not supplied")
+	// }
 
-	event, err := data.GetEventWithID(eventID, data.NewDB(r.ORM))
-	if err != nil {
-		return nil, err
-	}
+	// event, err := data.GetEventWithID(eventID, data.NewDB(r.ORM))
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	if event.Registration != models.RegistrationTypeOpen.String() {
-		return nil, errors.New("cannot join event because it is not open")
-	}
+	// if event.Registration != models.RegistrationTypeOpen.String() {
+	// 	return nil, errors.New("cannot join event because it is not open")
+	// }
 
-	if event.ContainsPlayer(user.ID) {
-		return nil, errors.New("player has already joined event")
-	}
+	// if event.ContainsPlayer(user.ID) {
+	// 	return nil, errors.New("player has already joined event")
+	// }
 
-	event, err = data.AddPlayerToEvent(&event, user, r.ORM)
-	if err != nil {
-		return nil, err
-	}
+	// event, err = data.AddPlayerToEvent(&event, user, r.ORM)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	eventOut := mapper.GQLEvent(&event)
+	// eventOut := mapper.GQLEvent(&event)
 
-	return eventOut, nil
+	// return eventOut, nil
+	panic("not yet implemented")
 }
 
 func (r *mutationResolver) LeaveEvent(ctx context.Context, eventID string) (*models.Event, error) {
@@ -301,7 +304,7 @@ func (r *mutationResolver) SetRegistration(ctx context.Context, eventID string, 
 
 	// map the event
 	eventOut := mapper.GQLEvent(&event)
-	
+
 	// return *event, error
 	return eventOut, nil
 }
@@ -332,6 +335,37 @@ func (r *mutationResolver) CreateDay(ctx context.Context, dayInput models.EventD
 	}
 
 	return mapper.GQLEventDay(&newDay), nil
+}
+
+func (r *mutationResolver) AddPlayer(ctx context.Context, input models.AddPlayerInput) (*models.Event, error) {
+	// check authorization against event ownership
+	dbUser := middlewares.UserInContext(ctx)
+	if dbUser.Username == "" {
+		// username cannot be blank, return an error
+		return nil, errors.New("cannot create day, valid user not supplied")
+	}
+
+	dbEvent, err := data.GetEventWithID(input.EventID, data.NewDB(r.ORM))
+	if err != nil {
+		return nil, err
+	}
+
+	if dbEvent.Organizer.ID != dbUser.ID {
+		log.Println(dbEvent.Organizer.Username, dbUser.Username)
+		return nil, fmt.Errorf("account is not authorized to modify event")
+	}
+
+	player := event.Player{
+		Name:  input.Name,
+		Event: dbEvent,
+	}
+
+	event, err := data.AddPlayerToEvent(&dbEvent, &player, r.ORM)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapper.GQLEvent(&event), nil
 }
 
 func (r *mutationResolver) UpdateDay(ctx context.Context, dayInput models.EventDayInput, eventID string) (*models.EventDay, error) {
@@ -508,4 +542,8 @@ func (r *mutationResolver) DeleteMatch(ctx context.Context, matchID, eventID str
 	}
 
 	return data.DeleteMatch(matchID, r.ORM)
+}
+
+func (r *mutationResolver) ReportMatchResults(ctx context.Context, input *models.MatchResultInput, matchID string) (*models.Match, error) {
+	return nil, nil
 }

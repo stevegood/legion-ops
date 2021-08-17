@@ -6,16 +6,22 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 )
 
 type Record interface {
 	IsRecord()
 }
 
+type AddPlayerInput struct {
+	Name    string `json:"name"`
+	EventID string `json:"eventID"`
+}
+
 type Event struct {
 	ID           string           `json:"id"`
-	CreatedAt    string           `json:"createdAt"`
-	UpdatedAt    string           `json:"updatedAt"`
+	CreatedAt    time.Time        `json:"createdAt"`
+	UpdatedAt    time.Time        `json:"updatedAt"`
 	Name         string           `json:"name"`
 	Description  string           `json:"description"`
 	Type         EventType        `json:"type"`
@@ -25,27 +31,27 @@ type Event struct {
 	Organizer    *User            `json:"organizer"`
 	HeadJudge    *User            `json:"headJudge"`
 	Judges       []*User          `json:"judges"`
-	Players      []*User          `json:"players"`
+	Players      []*Player        `json:"players"`
 }
 
 func (Event) IsRecord() {}
 
 type EventDay struct {
-	ID        string   `json:"id"`
-	CreatedAt string   `json:"createdAt"`
-	EndAt     string   `json:"endAt"`
-	UpdatedAt string   `json:"updatedAt"`
-	Rounds    []*Round `json:"rounds"`
-	StartAt   string   `json:"startAt"`
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"createdAt"`
+	EndAt     time.Time `json:"endAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	Rounds    []*Round  `json:"rounds"`
+	StartAt   time.Time `json:"startAt"`
 }
 
 func (EventDay) IsRecord() {}
 
 type EventDayInput struct {
 	ID      *string       `json:"id"`
-	EndAt   string        `json:"endAt"`
+	EndAt   time.Time     `json:"endAt"`
 	Rounds  []*RoundInput `json:"rounds"`
-	StartAt string        `json:"startAt"`
+	StartAt time.Time     `json:"startAt"`
 }
 
 type EventInput struct {
@@ -57,23 +63,23 @@ type EventInput struct {
 	Registration *RegistrationType `json:"registration"`
 	Days         []*EventDayInput  `json:"days"`
 	HeadJudge    *string           `json:"headJudge"`
-	Judges       []string          `json:"judges"`
-	Players      []string          `json:"players"`
+	Judges       []*string         `json:"judges"`
+	Players      []*string         `json:"players"`
 }
 
 type Match struct {
-	ID                     string `json:"id"`
-	CreatedAt              string `json:"createdAt"`
-	UpdatedAt              string `json:"updatedAt"`
-	Player1                *User  `json:"player1"`
-	Player1VictoryPoints   int    `json:"player1VictoryPoints"`
-	Player1MarginOfVictory int    `json:"player1MarginOfVictory"`
-	Player2                *User  `json:"player2"`
-	Player2VictoryPoints   int    `json:"player2VictoryPoints"`
-	Player2MarginOfVictory int    `json:"player2MarginOfVictory"`
-	Bye                    *User  `json:"bye"`
-	Blue                   *User  `json:"blue"`
-	Winner                 *User  `json:"winner"`
+	ID                     string    `json:"id"`
+	CreatedAt              time.Time `json:"createdAt"`
+	UpdatedAt              time.Time `json:"updatedAt"`
+	Player1                *Player   `json:"player1"`
+	Player1VictoryPoints   int       `json:"player1VictoryPoints"`
+	Player1MarginOfVictory int       `json:"player1MarginOfVictory"`
+	Player2                *Player   `json:"player2"`
+	Player2VictoryPoints   int       `json:"player2VictoryPoints"`
+	Player2MarginOfVictory int       `json:"player2MarginOfVictory"`
+	Bye                    *Player   `json:"bye"`
+	Blue                   *Player   `json:"blue"`
+	Winner                 *Player   `json:"winner"`
 }
 
 func (Match) IsRecord() {}
@@ -89,6 +95,32 @@ type MatchInput struct {
 	Bye                    *string `json:"bye"`
 	Blue                   *string `json:"blue"`
 	Winner                 *string `json:"winner"`
+}
+
+type MatchResultInput struct {
+	ImBlue            bool `json:"imBlue"`
+	IWon              bool `json:"iWon"`
+	MyVictoryPoints   int  `json:"myVictoryPoints"`
+	MyMarginOfVictory int  `json:"myMarginOfVictory"`
+}
+
+type MatchResultReport struct {
+	ID                string    `json:"id"`
+	CreatedAt         time.Time `json:"createdAt"`
+	UpdatedAt         time.Time `json:"updatedAt"`
+	Match             *Match    `json:"match"`
+	Reporter          *User     `json:"reporter"`
+	ImBlue            bool      `json:"imBlue"`
+	IWon              bool      `json:"iWon"`
+	MyVictoryPoints   int       `json:"myVictoryPoints"`
+	MyMarginOfVictory int       `json:"myMarginOfVictory"`
+}
+
+func (MatchResultReport) IsRecord() {}
+
+type Player struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type Profile struct {

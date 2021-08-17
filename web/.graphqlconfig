@@ -1,0 +1,22 @@
+{
+  "name": "Legion Ops GraphQL Schema",
+  "schemaPath": "schema.graphql",
+  "extensions": {
+    "endpoints": {
+      "localhost": {
+        "url": "http://localhost:5000/graphql",
+        "headers": {
+          "user-agent": "JS GraphQL"
+        },
+        "introspect": true
+      },
+      "production": {
+        "url": "https://legion-ops.herokuapp.com/graphql",
+        "headers": {
+          "user-agent": "JS GraphQL"
+        },
+        "introspect": true
+      }
+    }
+  }
+}

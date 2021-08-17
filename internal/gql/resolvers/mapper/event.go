@@ -1,18 +1,16 @@
 package mapper
 
 import (
-	"time"
-
 	"github.com/StarWarsDev/legion-ops/internal/gql/models"
 	"github.com/StarWarsDev/legion-ops/internal/orm/models/event"
 )
 
 func GQLEvent(eventIn *event.Event) *models.Event {
 	organizer := eventIn.Organizer
-	eventOut  := models.Event{
+	eventOut := models.Event{
 		ID:           eventIn.ID.String(),
-		CreatedAt:    time.Unix(eventIn.CreatedAt, 0).UTC().Format(time.RFC3339),
-		UpdatedAt:    time.Unix(eventIn.UpdatedAt, 0).UTC().Format(time.RFC3339),
+		CreatedAt:    eventIn.CreatedAt,
+		UpdatedAt:    eventIn.UpdatedAt,
 		Name:         eventIn.Name,
 		Description:  eventIn.Description,
 		Type:         models.EventType(eventIn.Type),
@@ -30,7 +28,7 @@ func GQLEvent(eventIn *event.Event) *models.Event {
 	}
 
 	for _, player := range eventIn.Players {
-		eventOut.Players = append(eventOut.Players, GQLUser(&player))
+		eventOut.Players = append(eventOut.Players, GQLPlayer(&player))
 	}
 
 	for _, day := range eventIn.Days {
@@ -42,12 +40,12 @@ func GQLEvent(eventIn *event.Event) *models.Event {
 
 func GQLEventDay(day *event.Day) *models.EventDay {
 	dayOut := models.EventDay{
-		CreatedAt: time.Unix(day.CreatedAt, 0).UTC().Format(time.RFC3339),
-		EndAt:     time.Unix(day.EndAt, 0).UTC().Format(time.RFC3339),
+		CreatedAt: day.CreatedAt,
+		EndAt:     day.EndAt,
 		ID:        day.ID.String(),
-		UpdatedAt: time.Unix(day.UpdatedAt, 0).UTC().Format(time.RFC3339),
-		Rounds:    nil,
-		StartAt:   time.Unix(day.StartAt, 0).UTC().Format(time.RFC3339),
+		UpdatedAt: day.UpdatedAt,
+		Rounds:    []*models.Round{},
+		StartAt:   day.StartAt,
 	}
 
 	for _, round := range day.Rounds {
@@ -61,7 +59,7 @@ func GQLRound(round *event.Round) *models.Round {
 	roundOut := models.Round{
 		ID:      round.ID.String(),
 		Counter: round.Counter,
-		Matches: nil,
+		Matches: []*models.Match{},
 	}
 
 	for _, match := range round.Matches {
@@ -74,16 +72,26 @@ func GQLRound(round *event.Round) *models.Round {
 func GQLMatch(match *event.Match) *models.Match {
 	player1 := match.Player1
 	player2 := match.Player2
-	return &models.Match{
+	m := models.Match{
 		ID:                     match.ID.String(),
-		Player1:                GQLUser(&player1),
+		Player1:                GQLPlayer(&player1),
 		Player1VictoryPoints:   match.Player1VictoryPoints,
 		Player1MarginOfVictory: match.Player1MarginOfVictory,
-		Player2:                GQLUser(&player2),
+		Player2:                GQLPlayer(&player2),
 		Player2VictoryPoints:   match.Player2VictoryPoints,
 		Player2MarginOfVictory: match.Player2MarginOfVictory,
-		Bye:                    GQLUser(match.Bye),
-		Blue:                   GQLUser(match.Blue),
-		Winner:                 GQLUser(match.Winner),
+		// ResultReports:          []*models.MatchResultReport{},
 	}
+
+	if m.Bye != nil {
+		m.Bye = GQLPlayer(match.Bye)
+	}
+	if m.Blue != nil {
+		m.Blue = GQLPlayer(match.Blue)
+	}
+	if m.Winner != nil {
+		m.Winner = GQLPlayer(match.Winner)
+	}
+
+	return &m
 }
