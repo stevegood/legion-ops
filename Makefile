@@ -7,6 +7,9 @@ build:
 build-web:
 	cd web && yarn build && cd ..
 
+build-docker:
+	@docker build -t legion-ops:SNAPSHOT .
+
 clean:
 	rm -f internal/gql/generated.go \
 		  internal/gql/models/generated.go
