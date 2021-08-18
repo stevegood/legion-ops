@@ -1,0 +1,50 @@
+version: '3'
+
+services:
+  postgres:
+    container_name: legion-ops_postgres
+    image: postgres:13-alpine
+    restart: always
+    env_file:
+      - ./.env
+    volumes:
+       - postgres:/data/postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - legionops
+    restart: unless-stopped
+
+  graphql:
+    container_name: legion-ops_graphql
+    build:
+      dockerfile: Dockerfile
+      context: .
+    env_file:
+      - ./.env
+    environment:
+      - DATABASE_URL=postgres://legionops:dbpasswd@postgres/legionops?sslmode=disable
+    ports:
+      - "5000:5000"
+    networks:
+      - legionops
+    depends_on:
+      - postgres
+
+  # live-reloader:
+  #   image: apogiatzis/livereloading
+  #   container_name: legion-ops_livereloader
+  #   privileged: true
+  #   environment:
+  #     - RELOAD_DELAY=1.5              # seconds
+  #     - RELOAD_CONTAINER=graphql
+  #   volumes:
+  #     - "/var/run/docker.sock:/var/run/docker.sock"
+  #     - "./graphql:/src"
+
+networks:
+  legionops:
+    driver: bridge
+
+volumes:
+    postgres:

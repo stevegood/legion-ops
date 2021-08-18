@@ -20,6 +20,9 @@ start:
 start-web:
 	cd web && BROWSER=none yarn start
 
+start-db:
+	@docker compose up postgres
+
 test:
 	go test -v ./...
 
