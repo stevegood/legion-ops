@@ -1,4 +1,4 @@
-import gql from "graphql-tag/src"
+import { gql } from "urql"
 import { playerFragment } from "./EventQueries"
 
 export const CREATE_EVENT = gql`

@@ -22,7 +22,6 @@
     "dom-to-image-more": "^2.8.0",
     "fs": "0.0.1-security",
     "graphql": "^15.3.0",
-    "graphql-tag": "^2.11.0",
     "html2canvas": "^1.0.0-rc.5",
     "https": "^1.0.0",
     "lodash": "^4.17.15",
@@ -48,11 +47,9 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "start:graphql": "cd ../graphql && make start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "postbuild": ""
+    "eject": "react-scripts eject"
   },
   "eslintConfig": {
     "extends": "react-app"

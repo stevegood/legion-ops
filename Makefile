@@ -17,6 +17,9 @@ clean:
 start:
 	go run .
 
+start-web:
+	cd web && BROWSER=none yarn start
+
 test:
 	go test -v ./...
 
