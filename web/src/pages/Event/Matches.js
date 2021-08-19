@@ -11,14 +11,14 @@ const useStyles = makeStyles(theme => ({
   },
 }))
 
-export default function Matches({ matches, setSelectedMatch }) {
+export default function Matches({ round, matches, setSelectedMatch }) {
   const classes = useStyles()
   const [sortedMatches] = useState(
     [...matches].sort((a, b) => compareDateStrings(a.createdAt, b.createdAt))
   )
 
   const handleMatchClick = match => {
-    setSelectedMatch(match)
+    setSelectedMatch({ match, round })
   }
 
   return (

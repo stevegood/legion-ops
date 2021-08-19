@@ -27,6 +27,19 @@ const useStyles = makeStyles(theme => ({
   selectEmpty: {
     marginTop: theme.spacing(2),
   },
+  modal: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  paper: {
+    width: "100%",
+    position: "relative",
+    backgroundColor: theme.palette.background.paper,
+    border: "2px solid #000",
+    boxShadow: theme.shadows[5],
+    padding: theme.spacing(2, 4, 3),
+  },
 }))
 
 function playersAreDifferent(player, otherPlayer) {
@@ -125,9 +138,13 @@ export default function CreateMatchModal({
   })
 
   return (
-    <Modal open={open} onEscapeKeyDown={onCancel}>
+    <Modal
+      open={open && round !== null}
+      onEscapeKeyDown={onCancel}
+      className={classes.modal}
+    >
       <Container>
-        <Paper>
+        <Paper className={classes.paper}>
           <Typography variant="h2">Create match</Typography>
           <Typography variant="h4">
             Round {round.counter} on {moment(day.startAt).toLocaleString()}

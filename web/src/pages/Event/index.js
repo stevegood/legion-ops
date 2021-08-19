@@ -78,16 +78,6 @@ export default function Event({
   }, [createRoundResult, refetchEvent])
 
   useEffect(() => {
-    if (!addMatchIsOpen && !selectedRound) return
-    setAddMatchIsOpen(selectedRound !== null)
-  }, [addMatchIsOpen, selectedRound, setAddMatchIsOpen])
-
-  useEffect(() => {
-    if (!editMatchIsOpen && !selectedRound && !selectedMatch) return
-    setEditMatchIsOpen(selectedMatch !== null)
-  }, [editMatchIsOpen, selectedRound, selectedMatch, setEditMatchIsOpen])
-
-  useEffect(() => {
     refetchEvent({ requestPolicy: "network-only" })
   }, [joinEventResult, refetchEvent])
 
@@ -132,17 +122,37 @@ export default function Event({
 
   const handleAddMatch = ({ round }) => {
     setSelectedRound(round)
+    setAddMatchIsOpen(true)
+  }
+
+  const handleAddMatchCancel = () => {
+    setSelectedRound(null)
+    setAddMatchIsOpen(false)
   }
 
   const handleMatchCreated = ({ match }) => {
     refetchEvent()
     setSelectedRound(null)
+    setAddMatchIsOpen(false)
+  }
+
+  const handleSetSelectedMatch = ({ match, round }) => {
+    setSelectedMatch(match)
+    setSelectedRound(round)
+    setEditMatchIsOpen(true)
+  }
+
+  const handleEditMatchCancel = () => {
+    setSelectedRound(null)
+    setSelectedMatch(null)
+    setEditMatchIsOpen(false)
   }
 
   const handleMatchChanged = match => {
     refetchEvent()
     setSelectedRound(null)
     setSelectedMatch(null)
+    setEditMatchIsOpen(false)
   }
 
   const handleRegister = () => {
@@ -180,7 +190,7 @@ export default function Event({
             open={addMatchIsOpen}
             event={event}
             round={selectedRound}
-            onCancel={() => setSelectedRound(null)}
+            onCancel={handleAddMatchCancel}
             onMatchCreated={handleMatchCreated}
           />
         )}
@@ -191,7 +201,7 @@ export default function Event({
             event={event}
             round={selectedRound}
             match={selectedMatch}
-            onCancel={() => setSelectedMatch(null)}
+            onCancel={handleEditMatchCancel}
             onMatchChanged={handleMatchChanged}
           />
         )}
@@ -231,7 +241,7 @@ export default function Event({
             onAddDay={handleAddDay}
             onAddRound={handleAddRound}
             onAddMatch={handleAddMatch}
-            setSelectedMatch={setSelectedMatch}
+            setSelectedMatch={handleSetSelectedMatch}
           />
         </Grid>
 

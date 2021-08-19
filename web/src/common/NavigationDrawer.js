@@ -7,8 +7,20 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
+  Link,
+  ListItemAvatar,
+  Avatar,
+  makeStyles,
 } from "@material-ui/core"
 import DataContext from "context/DataContext"
+import legionhq from "assets/legion-hq.png"
+
+const useStyles = makeStyles(theme => ({
+  avatar: {
+    width: theme.spacing(3),
+    height: theme.spacing(3),
+  },
+}))
 
 function NavDrawerLink({ selected, icon, text, handleClick }) {
   return (
@@ -21,6 +33,7 @@ function NavDrawerLink({ selected, icon, text, handleClick }) {
 
 function NavigationDrawer() {
   const location = useLocation()
+  const classes = useStyles()
   const { pathname } = location
   const { auth, isDrawerOpen, routes, goToPage, setIsDrawerOpen } = useContext(
     DataContext
@@ -82,6 +95,7 @@ function NavigationDrawer() {
               goToPage("/settings")
             }}
           />
+
           <NavDrawerLink
             text="Info"
             selected={pathname === "/info"}
@@ -91,6 +105,22 @@ function NavigationDrawer() {
               goToPage("/info")
             }}
           />
+
+          <Divider />
+
+          <Link
+            href="https://legion-hq.com"
+            target="_blank"
+            color="inherit"
+            underline="none"
+          >
+            <ListItem button>
+              <ListItemAvatar>
+                <Avatar src={legionhq} className={classes.avatar} />
+              </ListItemAvatar>
+              <ListItemText primary="Legion HQ" />
+            </ListItem>
+          </Link>
         </List>
       </div>
     </SwipeableDrawer>

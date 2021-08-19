@@ -65,8 +65,6 @@ export default function EventDayRounds({
 
           <Container>
             <Matches
-              event={event}
-              day={day}
               round={round}
               matches={round.matches}
               setSelectedMatch={setSelectedMatch}
