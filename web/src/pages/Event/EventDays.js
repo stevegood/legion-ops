@@ -69,6 +69,7 @@ export default function EventDays({
   days,
   onAddDay,
   onAddRound,
+  onCloseRound,
   onAddMatch,
   setSelectedMatch,
 }) {
@@ -129,6 +130,7 @@ export default function EventDays({
                 canModifyEvent={canModifyEvent}
                 onAddRound={() => onAddRound({ day })}
                 onAddMatch={({ round }) => onAddMatch({ round })}
+                onCloseRound={onCloseRound}
                 setSelectedMatch={setSelectedMatch}
               />
             </AccordionDetails>

@@ -59,6 +59,7 @@ func GQLRound(round *event.Round) *models.Round {
 	roundOut := models.Round{
 		ID:      round.ID.String(),
 		Counter: round.Counter,
+		Closed:  round.Closed,
 		Matches: []*models.Match{},
 	}
 

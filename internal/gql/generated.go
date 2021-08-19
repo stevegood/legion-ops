@@ -99,6 +99,7 @@ type ComplexityRoot struct {
 
 	Mutation struct {
 		AddPlayer          func(childComplexity int, input models.AddPlayerInput) int
+		CloseRound         func(childComplexity int, roundID string, eventID string) int
 		CreateDay          func(childComplexity int, input models.EventDayInput, eventID string) int
 		CreateEvent        func(childComplexity int, input models.EventInput) int
 		CreateMatch        func(childComplexity int, input models.MatchInput, roundID string, eventID string) int
@@ -107,6 +108,7 @@ type ComplexityRoot struct {
 		DeleteEvent        func(childComplexity int, eventID string) int
 		DeleteMatch        func(childComplexity int, matchID string, eventID string) int
 		DeleteRound        func(childComplexity int, roundID string, eventID string) int
+		GenerateMatches    func(childComplexity int, eventID string, roundID string) int
 		JoinEvent          func(childComplexity int, eventID string) int
 		LeaveEvent         func(childComplexity int, eventID string) int
 		PublishEvent       func(childComplexity int, eventID string) int
@@ -139,6 +141,7 @@ type ComplexityRoot struct {
 	}
 
 	Round struct {
+		Closed  func(childComplexity int) int
 		Counter func(childComplexity int) int
 		ID      func(childComplexity int) int
 		Matches func(childComplexity int) int
@@ -166,10 +169,12 @@ type MutationResolver interface {
 	DeleteDay(ctx context.Context, dayID string, eventID string) (bool, error)
 	CreateRound(ctx context.Context, input models.RoundInput, dayID string, eventID string) (*models.Round, error)
 	DeleteRound(ctx context.Context, roundID string, eventID string) (bool, error)
+	CloseRound(ctx context.Context, roundID string, eventID string) (bool, error)
 	CreateMatch(ctx context.Context, input models.MatchInput, roundID string, eventID string) (*models.Match, error)
 	UpdateMatch(ctx context.Context, input models.MatchInput, eventID string) (*models.Match, error)
 	DeleteMatch(ctx context.Context, matchID string, eventID string) (bool, error)
 	ReportMatchResults(ctx context.Context, input *models.MatchResultInput, matchID string) (*models.Match, error)
+	GenerateMatches(ctx context.Context, eventID string, roundID string) ([]*models.Match, error)
 }
 type QueryResolver interface {
 	Event(ctx context.Context, id string) (*models.Event, error)
@@ -485,6 +490,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.AddPlayer(childComplexity, args["input"].(models.AddPlayerInput)), true
 
+	case "Mutation.closeRound":
+		if e.complexity.Mutation.CloseRound == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_closeRound_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CloseRound(childComplexity, args["roundID"].(string), args["eventID"].(string)), true
+
 	case "Mutation.createDay":
 		if e.complexity.Mutation.CreateDay == nil {
 			break
@@ -580,6 +597,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.DeleteRound(childComplexity, args["roundID"].(string), args["eventID"].(string)), true
+
+	case "Mutation.generateMatches":
+		if e.complexity.Mutation.GenerateMatches == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_generateMatches_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.GenerateMatches(childComplexity, args["eventID"].(string), args["roundID"].(string)), true
 
 	case "Mutation.joinEvent":
 		if e.complexity.Mutation.JoinEvent == nil {
@@ -781,6 +810,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.MyProfile(childComplexity), true
 
+	case "Round.closed":
+		if e.complexity.Round.Closed == nil {
+			break
+		}
+
+		return e.complexity.Round.Closed(childComplexity), true
+
 	case "Round.counter":
 		if e.complexity.Round.Counter == nil {
 			break
@@ -910,8 +946,8 @@ type Profile {
 enum EventType {
   # Indicates a League event
   LEAGUE
-  # Indicates an FFG Organized Play event
-  FFGOP
+  # Indicates a Fifth Trooper Organized Play event
+  FTOP
   # Indicates some other, free form event
   OTHER
 }
@@ -1001,12 +1037,14 @@ type Mutation {
   # rounds
   createRound(input: RoundInput!, dayID: ID!, eventID: ID!): Round!
   deleteRound(roundID: ID!, eventID: ID!): Boolean!
+  closeRound(roundID: ID!, eventID: ID!): Boolean!
 
   # matches
   createMatch(input: MatchInput!, roundID: ID!, eventID: ID!): Match!
   updateMatch(input: MatchInput!, eventID: ID!): Match!
   deleteMatch(matchID: ID!, eventID: ID!): Boolean!
   reportMatchResults(input: MatchResultInput, matchID: ID!): Match!
+  generateMatches(eventID: ID!, roundID: ID!): [Match]!
 }
 
 type Query {
@@ -1025,6 +1063,7 @@ type Query {
 type Round {
   counter: Int!
   id: ID!
+  closed: Boolean!
   matches: [Match]!
 }
 
@@ -1110,6 +1149,30 @@ func (ec *executionContext) field_Mutation_addPlayer_args(ctx context.Context, r
 		}
 	}
 	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_closeRound_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["roundID"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("roundID"))
+		arg0, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["roundID"] = arg0
+	var arg1 string
+	if tmp, ok := rawArgs["eventID"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("eventID"))
+		arg1, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["eventID"] = arg1
 	return args, nil
 }
 
@@ -1302,6 +1365,30 @@ func (ec *executionContext) field_Mutation_deleteRound_args(ctx context.Context,
 		}
 	}
 	args["eventID"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_generateMatches_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["eventID"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("eventID"))
+		arg0, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["eventID"] = arg0
+	var arg1 string
+	if tmp, ok := rawArgs["roundID"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("roundID"))
+		arg1, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["roundID"] = arg1
 	return args, nil
 }
 
@@ -3586,6 +3673,48 @@ func (ec *executionContext) _Mutation_deleteRound(ctx context.Context, field gra
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Mutation_closeRound(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_closeRound_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().CloseRound(rctx, args["roundID"].(string), args["eventID"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Mutation_createMatch(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -3752,6 +3881,48 @@ func (ec *executionContext) _Mutation_reportMatchResults(ctx context.Context, fi
 	res := resTmp.(*models.Match)
 	fc.Result = res
 	return ec.marshalNMatch2ᚖgithubᚗcomᚋStarWarsDevᚋlegionᚑopsᚋinternalᚋgqlᚋmodelsᚐMatch(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_generateMatches(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_generateMatches_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().GenerateMatches(rctx, args["eventID"].(string), args["roundID"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*models.Match)
+	fc.Result = res
+	return ec.marshalNMatch2ᚕᚖgithubᚗcomᚋStarWarsDevᚋlegionᚑopsᚋinternalᚋgqlᚋmodelsᚐMatch(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Player_id(ctx context.Context, field graphql.CollectedField, obj *models.Player) (ret graphql.Marshaler) {
@@ -4299,6 +4470,41 @@ func (ec *executionContext) _Round_id(ctx context.Context, field graphql.Collect
 	res := resTmp.(string)
 	fc.Result = res
 	return ec.marshalNID2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Round_closed(ctx context.Context, field graphql.CollectedField, obj *models.Round) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Round",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Closed, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Round_matches(ctx context.Context, field graphql.CollectedField, obj *models.Round) (ret graphql.Marshaler) {
@@ -6259,6 +6465,11 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
+		case "closeRound":
+			out.Values[i] = ec._Mutation_closeRound(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		case "createMatch":
 			out.Values[i] = ec._Mutation_createMatch(ctx, field)
 			if out.Values[i] == graphql.Null {
@@ -6276,6 +6487,11 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			}
 		case "reportMatchResults":
 			out.Values[i] = ec._Mutation_reportMatchResults(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "generateMatches":
+			out.Values[i] = ec._Mutation_generateMatches(ctx, field)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6473,6 +6689,11 @@ func (ec *executionContext) _Round(ctx context.Context, sel ast.SelectionSet, ob
 			}
 		case "id":
 			out.Values[i] = ec._Round_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "closed":
+			out.Values[i] = ec._Round_closed(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}

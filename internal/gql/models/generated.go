@@ -134,6 +134,7 @@ type Profile struct {
 type Round struct {
 	Counter int      `json:"counter"`
 	ID      string   `json:"id"`
+	Closed  bool     `json:"closed"`
 	Matches []*Match `json:"matches"`
 }
 
@@ -152,19 +153,19 @@ type EventType string
 
 const (
 	EventTypeLeague EventType = "LEAGUE"
-	EventTypeFfgop  EventType = "FFGOP"
+	EventTypeFtop   EventType = "FTOP"
 	EventTypeOther  EventType = "OTHER"
 )
 
 var AllEventType = []EventType{
 	EventTypeLeague,
-	EventTypeFfgop,
+	EventTypeFtop,
 	EventTypeOther,
 }
 
 func (e EventType) IsValid() bool {
 	switch e {
-	case EventTypeLeague, EventTypeFfgop, EventTypeOther:
+	case EventTypeLeague, EventTypeFtop, EventTypeOther:
 		return true
 	}
 	return false

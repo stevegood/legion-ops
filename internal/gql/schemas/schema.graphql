@@ -21,8 +21,8 @@ type Profile {
 enum EventType {
   # Indicates a League event
   LEAGUE
-  # Indicates an FFG Organized Play event
-  FFGOP
+  # Indicates a Fifth Trooper Organized Play event
+  FTOP
   # Indicates some other, free form event
   OTHER
 }
@@ -112,12 +112,14 @@ type Mutation {
   # rounds
   createRound(input: RoundInput!, dayID: ID!, eventID: ID!): Round!
   deleteRound(roundID: ID!, eventID: ID!): Boolean!
+  closeRound(roundID: ID!, eventID: ID!): Boolean!
 
   # matches
   createMatch(input: MatchInput!, roundID: ID!, eventID: ID!): Match!
   updateMatch(input: MatchInput!, eventID: ID!): Match!
   deleteMatch(matchID: ID!, eventID: ID!): Boolean!
   reportMatchResults(input: MatchResultInput, matchID: ID!): Match!
+  generateMatches(eventID: ID!, roundID: ID!): [Match]!
 }
 
 type Query {
@@ -136,6 +138,7 @@ type Query {
 type Round {
   counter: Int!
   id: ID!
+  closed: Boolean!
   matches: [Match]!
 }
 

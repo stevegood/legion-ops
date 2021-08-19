@@ -15,11 +15,13 @@ import (
 
 type Player struct {
 	ID        uuid.UUID `gorm:"primary_key;type:uuid;default:uuid_generate_v4()"`
-	CreatedAt int64     `gorm:"not null"`
-	UpdatedAt int64     `gorm:"not null"`
-	Name      string    // if this is blank the UI will fall back to `Username`
+	CreatedAt time.Time `gorm:"not null"`
+	UpdatedAt time.Time `gorm:"not null"`
 	Event     Event     `gorm:"PRELOAD:false"`
 	EventID   uuid.UUID
+	Stats     *PlayerStats
+	StatsID   *uuid.UUID
+	Name      string
 }
 
 func (player *Player) BeforeSave(scope *gorm.Scope) error {
@@ -36,17 +38,6 @@ func (player *Player) BeforeSave(scope *gorm.Scope) error {
 		}
 	}
 
-	unixNow := time.Now().UTC().Unix()
-
-	if player.CreatedAt == 0 {
-		err = scope.SetColumn("CreatedAt", unixNow)
-		if err != nil {
-			return err
-		}
-	}
-
-	err = scope.SetColumn("UpdatedAt", unixNow)
-
 	return err
 }
 
@@ -57,9 +48,5 @@ func (player *Player) Prepare() {
 	}
 
 	player.ID = id
-	if player.CreatedAt == 0 {
-		player.CreatedAt = time.Now().UTC().Unix()
-	}
-	player.UpdatedAt = time.Now().UTC().Unix()
 	player.Name = html.EscapeString(strings.TrimSpace(player.Name))
 }

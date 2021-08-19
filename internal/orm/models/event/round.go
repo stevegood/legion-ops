@@ -18,6 +18,7 @@ type Round struct {
 	CreatedAt time.Time `gorm:"not null"`
 	UpdatedAt time.Time `gorm:"not null"`
 	Counter   int       `gorm:"not null"`
+	Closed    bool      `gorm:"not null;default:false"`
 	Day       Day       `gorm:"PRELOAD:false"`
 	DayID     uuid.UUID
 	Matches   []Match

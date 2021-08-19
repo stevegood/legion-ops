@@ -10,6 +10,7 @@ import EventDays from "./EventDays"
 import EditButton from "./EditButton"
 import { EVENT_QUERY } from "constants/EventQueries"
 import {
+  CLOSE_ROUND,
   CREATE_ROUND,
   JOIN_EVENT,
   LEAVE_EVENT,
@@ -52,6 +53,9 @@ export default function Event({
   // mutation for adding a round
   const [createRoundResult, createRound] = useMutation(CREATE_ROUND)
 
+  // mutation for closing a round
+  const [closeRoundResult, closeRound] = useMutation(CLOSE_ROUND)
+
   // mutation for publishing an event
   const [publishEventResult, publishEvent] = useMutation(PUBLISH_EVENT)
 
@@ -76,6 +80,12 @@ export default function Event({
     if (createRoundResult.fetching || !createRoundResult.data) return
     refetchEvent({ requestPolicy: "network-only" })
   }, [createRoundResult, refetchEvent])
+
+  useEffect(() => {
+    if (closeRoundResult.error) return console.error(closeRoundResult.error)
+    if (closeRoundResult.fetching || !closeRoundResult.data) return
+    refetchEvent({ requestPolicy: "network-only" })
+  }, [closeRoundResult, refetchEvent])
 
   useEffect(() => {
     refetchEvent({ requestPolicy: "network-only" })
@@ -117,6 +127,13 @@ export default function Event({
     createRound({
       eventID: id,
       dayID: day.id,
+    }).catch(err => console.error(err))
+  }
+
+  const handleCloseRound = ({ round }) => {
+    closeRound({
+      roundID: round.id,
+      eventID: id,
     }).catch(err => console.error(err))
   }
 
@@ -240,6 +257,7 @@ export default function Event({
             days={event.days}
             onAddDay={handleAddDay}
             onAddRound={handleAddRound}
+            onCloseRound={handleCloseRound}
             onAddMatch={handleAddMatch}
             setSelectedMatch={handleSetSelectedMatch}
           />

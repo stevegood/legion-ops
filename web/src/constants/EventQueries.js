@@ -45,6 +45,7 @@ export const EVENT_QUERY = gql`
         rounds {
           id
           counter
+          closed
           matches {
             id
             player1 {

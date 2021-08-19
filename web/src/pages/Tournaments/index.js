@@ -30,7 +30,7 @@ export default function Tournaments() {
     query: ALL_EVENTS_QUERY,
     pollInterval: 60000,
     variables: {
-      eventType: "FFGOP",
+      eventType: "FTOP",
       startsAfter: startsAfter.toISOString(),
       endsBefore: endsBefore.toISOString(),
     },
@@ -45,7 +45,7 @@ export default function Tournaments() {
   }
 
   const events = result.data.events
-    .filter(event => event.type === "FFGOP" && event.days.length > 0)
+    .filter(event => event.type === "FTOP" && event.days.length > 0)
     .sort((a, b) => compareDateStrings(a.days[0].startAt, b.days[0].startAt))
 
   const navigateToEvent = id => {
@@ -88,7 +88,7 @@ export default function Tournaments() {
               isAuthenticated={isAuthenticated}
               profile={profile}
               title="Create a Tournament"
-              eventType="FFGOP"
+              eventType="FTOP"
               open={open}
               onSaved={handleSaved}
               onCancel={() => setOpen(false)}
