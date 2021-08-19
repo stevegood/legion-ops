@@ -14,6 +14,8 @@ import {
 import { makeStyles } from "@material-ui/core/styles"
 import moment from "moment"
 import SaveCancelButtons from "./SaveCancelButtons"
+import { useMutation } from "urql"
+import { UPDATE_MATCH } from "constants/EventMutations"
 
 const useStyles = makeStyles(theme => ({
   container: {
@@ -83,7 +85,8 @@ export default function EditMatchModal({
   const [p2VP, setP2VP] = useState(0)
   const [p1MOV, setP1MOV] = useState(0)
   const [p2MOV, setP2MOV] = useState(0)
-  const [selectionIsValid, setSelectionIsValid] = useState(false)
+
+  const [updateMatchResult, updateMatch] = useMutation(UPDATE_MATCH)
 
   useEffect(() => {
     if (match?.player1?.name && match?.player2?.name) {
@@ -106,22 +109,12 @@ export default function EditMatchModal({
   }, [match, setPlayer1, setPlayer2])
 
   useEffect(() => {
-    // don't validate if the round is null
-    if (!round) return
+    if (updateMatchResult.fetching) return
+    if (updateMatchResult.error) return console.error(updateMatchResult.error)
+    if (!updateMatchResult.data) return
 
-    const hasBlankPlayer = player1 === "" || player2 === ""
-    const areDifferent = playersAreDifferent(player1, player2)
-    const player1IsInRound = playerIsInRound(round, { id: player1 })
-    const player2IsInRound = playerIsInRound(round, { id: player2 })
-
-    const isValid =
-      !hasBlankPlayer && areDifferent && !player1IsInRound && !player2IsInRound
-
-    // only change the state if it is different
-    if (isValid !== selectionIsValid) {
-      setSelectionIsValid(isValid)
-    }
-  }, [round, player1, player2, selectionIsValid])
+    onMatchChanged({ match: updateMatchResult.data })
+  }, [updateMatchResult, onMatchChanged])
 
   const calcMOV = () => {
     const totalVP = parseInt(p1VP) + parseInt(p2VP)
@@ -145,6 +138,27 @@ export default function EditMatchModal({
       return console.error("Players 1 and 2 cannot be the same person...")
     if (player1 === "" || player2 === "")
       return console.error("Player IDs cannot be blank")
+
+    // update the match
+    const variables = {
+      eventID: event.id,
+      input: {
+        id: match.id,
+        player1: match.player1.id,
+        player1VictoryPoints: parseInt(p1VP),
+        player1MarginOfVictory: parseInt(p1MOV),
+        player2: match.player2.id,
+        player2VictoryPoints: parseInt(p2VP),
+        player2MarginOfVictory: parseInt(p2MOV),
+        bye: bye === "" ? null : bye,
+        blue: blue === "" ? null : blue,
+        winner: winner === "" ? null : winner,
+      },
+    }
+
+    console.log(variables)
+
+    updateMatch(variables)
   }
 
   let day = null
@@ -300,7 +314,7 @@ export default function EditMatchModal({
           <SaveCancelButtons
             onSave={handleSave}
             onCancel={onCancel}
-            saveDisabled={!selectionIsValid}
+            saveDisabled={false}
           />
         </Paper>
       </Container>

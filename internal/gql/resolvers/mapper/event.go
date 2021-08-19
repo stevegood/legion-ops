@@ -83,13 +83,13 @@ func GQLMatch(match *event.Match) *models.Match {
 		// ResultReports:          []*models.MatchResultReport{},
 	}
 
-	if m.Bye != nil {
+	if match.Bye != nil {
 		m.Bye = GQLPlayer(match.Bye)
 	}
-	if m.Blue != nil {
+	if match.Blue != nil {
 		m.Blue = GQLPlayer(match.Blue)
 	}
-	if m.Winner != nil {
+	if match.Winner != nil {
 		m.Winner = GQLPlayer(match.Winner)
 	}
 

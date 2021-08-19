@@ -80,6 +80,15 @@ export const CREATE_MATCH = gql`
   }
   ${playerFragment}
 `
+
+export const UPDATE_MATCH = gql`
+  mutation UpdateMatch($input: MatchInput!, $eventID: ID!) {
+    updateMatch(input: $input, eventID: $eventID) {
+      id
+    }
+  }
+`
+
 export const JOIN_EVENT = gql`
   mutation JoinEvent($eventId: ID!) {
     joinEvent(eventId: $eventId) {
