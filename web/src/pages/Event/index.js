@@ -21,6 +21,7 @@ import { useCanModifyEvent, useIsAuthenticated } from "hooks/auth"
 import CreateMatchModal from "../../common/CreateMatchModal"
 import PublishButton from "./PublishButton"
 import { MY_PROFILE } from "constants/UserQueries"
+import EditMatchModal from "common/EditMatchModal"
 
 export default function Event({
   match: {
@@ -31,6 +32,8 @@ export default function Event({
   const location = useLocation()
   const [isAuthenticated] = useIsAuthenticated()
   const [addMatchIsOpen, setAddMatchIsOpen] = useState(false)
+  const [selectedMatch, setSelectedMatch] = useState(null)
+  const [editMatchIsOpen, setEditMatchIsOpen] = useState(false)
   const [selectedRound, setSelectedRound] = useState(null)
   const [canModifyEvent] = useCanModifyEvent(id)
   const [myProfileResult] = useQuery({ query: MY_PROFILE })
@@ -78,6 +81,11 @@ export default function Event({
     if (!addMatchIsOpen && !selectedRound) return
     setAddMatchIsOpen(selectedRound !== null)
   }, [addMatchIsOpen, selectedRound, setAddMatchIsOpen])
+
+  useEffect(() => {
+    if (!editMatchIsOpen && !selectedRound && !selectedMatch) return
+    setEditMatchIsOpen(selectedMatch !== null)
+  }, [editMatchIsOpen, selectedRound, selectedMatch, setEditMatchIsOpen])
 
   useEffect(() => {
     refetchEvent({ requestPolicy: "network-only" })
@@ -131,6 +139,12 @@ export default function Event({
     setSelectedRound(null)
   }
 
+  const handleMatchChanged = match => {
+    refetchEvent()
+    setSelectedRound(null)
+    setSelectedMatch(null)
+  }
+
   const handleRegister = () => {
     // call joinEvent
     joinEvent({
@@ -171,6 +185,17 @@ export default function Event({
           />
         )}
 
+        {editMatchIsOpen && selectedMatch && selectedRound && (
+          <EditMatchModal
+            open={editMatchIsOpen}
+            event={event}
+            round={selectedRound}
+            match={selectedMatch}
+            onCancel={() => setSelectedMatch(null)}
+            onMatchChanged={handleMatchChanged}
+          />
+        )}
+
         <Grid item xs={9}>
           <Typography variant="h2" component="h1">
             {event.name}
@@ -201,10 +226,12 @@ export default function Event({
           )}
           <EventDays
             canModifyEvent={canModifyEvent}
+            event={event}
             days={event.days}
             onAddDay={handleAddDay}
             onAddRound={handleAddRound}
             onAddMatch={handleAddMatch}
+            setSelectedMatch={setSelectedMatch}
           />
         </Grid>
 

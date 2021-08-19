@@ -15,8 +15,8 @@ services:
       - legionops
     restart: unless-stopped
 
-  graphql:
-    container_name: legion-ops_graphql
+  app:
+    container_name: legion-ops_app
     build:
       dockerfile: Dockerfile
       context: .
@@ -24,23 +24,13 @@ services:
       - ./.env
     environment:
       - DATABASE_URL=postgres://legionops:dbpasswd@postgres/legionops?sslmode=disable
+      - NODE_ENV=dev
     ports:
-      - "5000:5000"
+      - "3000:5000"
     networks:
       - legionops
     depends_on:
       - postgres
-
-  # live-reloader:
-  #   image: apogiatzis/livereloading
-  #   container_name: legion-ops_livereloader
-  #   privileged: true
-  #   environment:
-  #     - RELOAD_DELAY=1.5              # seconds
-  #     - RELOAD_CONTAINER=graphql
-  #   volumes:
-  #     - "/var/run/docker.sock:/var/run/docker.sock"
-  #     - "./graphql:/src"
 
 networks:
   legionops:

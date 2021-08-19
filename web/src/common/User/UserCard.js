@@ -75,7 +75,7 @@ export default function UserCard({
       variant={bye && bye.id !== user.id ? "outlined" : "elevation"}
     >
       <CardMedia className={media} image={user.picture}>
-        {user.picture === "" && <FaceIcon className={classes.icon} />}
+        <FaceIcon className={classes.icon} />
       </CardMedia>
       <div className={classes.details}>
         <CardContent className={classes.content}>

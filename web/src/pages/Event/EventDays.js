@@ -65,10 +65,12 @@ const useStyles = makeStyles(theme => ({
 
 export default function EventDays({
   canModifyEvent,
+  event,
   days,
   onAddDay,
   onAddRound,
   onAddMatch,
+  setSelectedMatch,
 }) {
   const classes = useStyles()
   const [sortedDays] = useState(
@@ -121,10 +123,13 @@ export default function EventDays({
             </AccordionSummary>
             <AccordionDetails>
               <EventDayRounds
+                event={event}
+                day={day}
                 rounds={day.rounds}
                 canModifyEvent={canModifyEvent}
                 onAddRound={() => onAddRound({ day })}
                 onAddMatch={({ round }) => onAddMatch({ round })}
+                setSelectedMatch={setSelectedMatch}
               />
             </AccordionDetails>
           </Accordion>

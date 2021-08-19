@@ -61,9 +61,6 @@ export function DataProvider({ children }) {
   const history = useHistory()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [auth, setAuth] = useState()
-  // const [error, setError] = useState();
-  // const [userId, setUserId] = useState();
-  // const [message, setMessage] = useState();
   const [userLists, setUserLists] = useState([])
   const [userSettings, setUserSettings] = useState(initializeLocalSettings())
 
@@ -79,27 +76,6 @@ export function DataProvider({ children }) {
     asyncSilentAuth()
   }, [])
 
-  // useEffect(() => {
-  //   if (auth && auth.isAuthenticated() && !userId) {
-  //     fetchUserId(auth.getEmail());
-  //   }
-  // // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [auth]);
-  //
-  // useEffect(() => {
-  //   if (userId) fetchUserLists(userId);
-  // }, [userId]);
-  //
-  // useEffect(() => {
-  //   if (userId) {
-  //     console.log(`Fetching lists for userId: ${userId}`);
-  //     fetchUserLists(userId);
-  //   } else if (auth && auth.isAuthenticated() && !userId) {
-  //     console.log(`Logging in user with email: ${auth.getEmail()}`);
-  //     fetchUserId(auth.getEmail());
-  //   }
-  // }, [userId, auth]);
-
   const setUserSettingsValue = (key, value) => {
     if (typeof Storage !== "undefined") {
       const newSettings = {
@@ -112,58 +88,15 @@ export function DataProvider({ children }) {
   }
   const goToPage = newRoute => history.push(newRoute)
 
-  // const fetchUserLists = (userId) => {
-  //   if (userId) {
-  //     httpClient.get(`${urls.api}/lists?userId=${userId}`)
-  //       .then(response => {
-  //         setUserLists(response.data);
-  //       }).catch(e => {
-  //         setError(e);
-  //         setMessage(`Failed to fetch lists for user ${userId}`);
-  //       });
-  //   } else setUserLists([]);
-  // }
-
-  // const fetchUserId = (email) => {
-  //   if (email) {
-  //     httpClient.get(`${urls.api}/users?email=${email}`)
-  //       .then(response => {
-  //         if (response.data.length > 0) {
-  //           setUserId(response.data[0].userId);
-  //         } else {
-  //           httpClient.post(`${urls.api}/users`, { email })
-  //           .then(creationResponse => {
-  //             if (creationResponse.data.length > 0){
-  //               setUserId(response.data[0].userId)
-  //             } else {
-  //               setError('Login failure');
-  //               setMessage(`Tried and failed to create account with email address ${email}`);
-  //             }
-  //           })
-  //           .catch(e => {
-  //             setError('Login failure');
-  //             setMessage(`Failed to create account with email address ${email}`);
-  //           });
-  //         }
-  //       })
-  //       .catch(e => {
-  //         setError(e);
-  //         setMessage(`Failed to find user with email address ${email}`);
-  //       });
-  //   }
-  // }
-  // if (error) return <ErrorFallback error={error} message={message} />;
   return (
     <DataContext.Provider
       value={{
         isDrawerOpen,
         auth,
-        // userId,
         routes,
         userLists,
         userSettings,
         goToPage,
-        // fetchUserLists,
         setUserLists,
         setUserSettingsValue,
         setIsDrawerOpen,

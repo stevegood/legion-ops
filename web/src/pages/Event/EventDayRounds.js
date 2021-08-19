@@ -12,10 +12,13 @@ import AddIcon from "@material-ui/icons/Add"
 import Matches from "./Matches"
 
 export default function EventDayRounds({
+  event,
+  day,
   rounds,
   canModifyEvent,
   onAddRound,
   onAddMatch,
+  setSelectedMatch,
 }) {
   const [sortedRounds] = useState(
     [...rounds].sort((a, b) => a.counter - b.counter)
@@ -61,7 +64,13 @@ export default function EventDayRounds({
           </Grid>
 
           <Container>
-            <Matches matches={round.matches} />
+            <Matches
+              event={event}
+              day={day}
+              round={round}
+              matches={round.matches}
+              setSelectedMatch={setSelectedMatch}
+            />
           </Container>
         </Grid>
       ))}
