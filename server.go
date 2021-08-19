@@ -9,15 +9,15 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/StarWarsDev/legion-ops/internal/gql"
+	"github.com/StarWarsDev/legion-ops/internal/gql/resolvers"
 	"github.com/StarWarsDev/legion-ops/internal/orm"
-
-	"github.com/StarWarsDev/legion-ops/routes/gql"
-
-	"github.com/gorilla/sessions"
-
 	"github.com/StarWarsDev/legion-ops/routes/middlewares"
-
+	"github.com/StarWarsDev/legion-ops/web"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"github.com/urfave/negroni"
 )
 
@@ -38,10 +38,10 @@ func CORS(next http.Handler) http.Handler {
 
 		// Next
 		next.ServeHTTP(w, r)
-		return
 	})
 }
 
+// StartServer starts a new legion ops graphql server
 func StartServer(port, localFilePath string, wait time.Duration, dbORM *orm.ORM) {
 	storeSalt := os.Getenv("STORE_SALT")
 	if storeSalt == "" {
@@ -51,7 +51,6 @@ func StartServer(port, localFilePath string, wait time.Duration, dbORM *orm.ORM)
 	gob.Register(map[string]interface{}{})
 
 	middlewareFuncs := middlewares.New(store, dbORM)
-	graphqlHandlers := gql.New(store)
 
 	n := negroni.Classic()
 	r := mux.NewRouter()
@@ -59,8 +58,22 @@ func StartServer(port, localFilePath string, wait time.Duration, dbORM *orm.ORM)
 	r.Use(CORS)
 	r.Use(middlewareFuncs.Authorize)
 
-	r.Handle("/graphical", graphqlHandlers.GraphicalHandler("/graphql"))
-	r.Handle("/graphql", graphqlHandlers.GraphQLHandler(dbORM))
+	// setup graphql handlers
+	gqlSrv := handler.NewDefaultServer(gql.NewExecutableSchema(gql.Config{
+		Resolvers: &resolvers.Resolver{
+			ORM: dbORM,
+		},
+	}))
+
+	r.Handle("/graphical", playground.Handler("Legion Ops GraphQL", "/graphql"))
+	r.Handle("/graphql", gqlSrv)
+
+	// Strip /web/ and prepend build, so that a file `a/b.js` would be
+	// found in web/build/a/b.js, but served from localhost:8080/web/a/b.js.
+	handler := web.AssetHandler("/", "build")
+
+	r.PathPrefix("/").Handler(handler)
+	r.PathPrefix("/static/").Handler(handler)
 
 	n.UseHandler(r)
 	srv := &http.Server{

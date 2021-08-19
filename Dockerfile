@@ -1,17 +1,29 @@
-FROM golang:1.13-alpine as server
-WORKDIR /src
-COPY . .
-RUN go build -v .
+FROM node:alpine as web
+WORKDIR /web
+COPY web/ ./
+RUN yarn && yarn build
 
-FROM alpine
-
-ENV CLIENT_FILES_PATH /app/client/build
-
+FROM golangci/golangci-lint:latest-alpine AS build
+RUN apk add git
+ENV CGO_ENABLED=0
 RUN apk --no-cache add ca-certificates
-COPY --from=server /src/legion-ops /bin
-RUN apk update \
-  && apk upgrade \
-  && apk add --no-cache ca-certificates \
-  && update-ca-certificates 2>/dev/null || true
+
+WORKDIR /src
+COPY go.* ./
+RUN go mod download
+
+COPY . ./
+COPY --from=web /web/build/ /src/web/build/
+RUN golangci-lint run --timeout 10m0s ./... \
+  && go test -v ./... \
+  && go build -o /out/graphql .
+
+FROM scratch
+# copy the ca-certificate.crt from the build stage
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=build /out/graphql /
+
 EXPOSE 5000
-CMD ["/bin/legion-ops"]
+STOPSIGNAL SIGINT
+
+ENTRYPOINT [ "/graphql" ]

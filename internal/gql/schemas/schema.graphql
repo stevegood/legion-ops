@@ -1,163 +1,203 @@
 schema {
-    query: Query
-    mutation: Mutation
+  query: Query
+  mutation: Mutation
 }
 
 interface Record {
-    id: ID!
-    createdAt: Date!
-    updatedAt: Date!
+  id: ID!
+  createdAt: Time!
+  updatedAt: Time!
 }
 
 type Profile {
-    account: User!
-    username: String!
-    organizedEvents: [Event!]!
-    judgingEvents: [Event!]!
-    participatingEvents: [Event!]!
+  account: User!
+  username: String!
+  organizedEvents: [Event]!
+  judgingEvents: [Event]!
+  participatingEvents: [Event]!
 }
 
 # EventType helps to indicate an event's type.
 enum EventType {
-    # Indicates a League event
-    LEAGUE
-    # Indicates an FFG Organized Play event
-    FFGOP
-    # Indicates some other, free form event
-    OTHER
+  # Indicates a League event
+  LEAGUE
+  # Indicates an FFG Organized Play event
+  FFGOP
+  # Indicates some other, free form event
+  OTHER
 }
 
 # RegistrationType helps indicate how players are able to register for an event
 enum RegistrationType {
-    # Indicates registration is open to the public
-    OPEN
-    # Indicates registration is by invite only
-    INVITE
-    # Indicates that no new registrations will be allowed
-    CLOSED
+  # Indicates registration is open to the public
+  OPEN
+  # Indicates registration is by invite only
+  INVITE
+  # Indicates that no new registrations will be allowed
+  CLOSED
 }
 
 type Event implements Record {
-    id: ID!
-    createdAt: Date!
-    updatedAt: Date!
-    name: String!
-    description: String!
-    type: EventType!
-    published: Boolean!
-    registration: RegistrationType!
-    days: [EventDay!]!
-    organizer: User!
-    headJudge: User
-    judges: [User!]!
-    players: [User!]!
+  id: ID!
+  createdAt: Time!
+  updatedAt: Time!
+  name: String!
+  description: String!
+  type: EventType!
+  published: Boolean!
+  registration: RegistrationType!
+  days: [EventDay]!
+  organizer: User!
+  headJudge: User
+  judges: [User]!
+  players: [Player]!
 }
 
-type EventDay implements Record{
-    id: ID!
-    createdAt: Date!
-    endAt: Date!
-    updatedAt: Date!
-    rounds: [Round!]!
-    startAt: Date!
+type EventDay implements Record {
+  id: ID!
+  createdAt: Time!
+  endAt: Time!
+  updatedAt: Time!
+  rounds: [Round]!
+  startAt: Time!
 }
 
 type Match implements Record {
-    id: ID!
-    createdAt: Date!
-    updatedAt: Date!
-    player1: User!
-    player1VictoryPoints: Int!
-    player1MarginOfVictory: Int!
-    player2: User!
-    player2VictoryPoints: Int!
-    player2MarginOfVictory: Int!
-    bye: User
-    blue: User
-    winner: User
+  id: ID!
+  createdAt: Time!
+  updatedAt: Time!
+  player1: Player!
+  player1VictoryPoints: Int!
+  player1MarginOfVictory: Int!
+  player2: Player!
+  player2VictoryPoints: Int!
+  player2MarginOfVictory: Int!
+  bye: Player
+  blue: Player
+  winner: Player
+  # resultReports: [MatchResultReport]!
+}
+
+type MatchResultReport implements Record {
+  id: ID!
+  createdAt: Time!
+  updatedAt: Time!
+  match: Match!
+  reporter: User!
+  imBlue: Boolean!
+  iWon: Boolean!
+  myVictoryPoints: Int!
+  myMarginOfVictory: Int!
 }
 
 type Mutation {
-    # events
-    createEvent(input: EventInput!): Event!
-    updateEvent(input: EventInput!): Event!
-    deleteEvent(eventId: ID!): Boolean!
-    publishEvent(eventId: ID!): Event!
-    unpublishEvent(eventId: ID!): Event!
-    joinEvent(eventId: ID!): Event!
-    leaveEvent(eventId: ID!): Event!
-    setRegistration(eventId: ID!, registrationType: RegistrationType!): Event!
+  # events
+  createEvent(input: EventInput!): Event!
+  updateEvent(input: EventInput!): Event!
+  deleteEvent(eventId: ID!): Boolean!
+  publishEvent(eventId: ID!): Event!
+  unpublishEvent(eventId: ID!): Event!
+  joinEvent(eventId: ID!): Event!
+  leaveEvent(eventId: ID!): Event!
+  setRegistration(eventId: ID!, registrationType: RegistrationType!): Event!
 
-    # days
-    createDay(input: EventDayInput!, eventID: ID!): EventDay!
-    updateDay(input: EventDayInput!, eventID: ID!): EventDay!
-    deleteDay(dayID: ID!, eventID: ID!): Boolean!
+  # players
+  addPlayer(input: AddPlayerInput!): Event!
 
-    # rounds
-    createRound(input: RoundInput!, dayID: ID!, eventID: ID!): Round!
-    deleteRound(roundID: ID!, eventID: ID!): Boolean!
+  # days
+  createDay(input: EventDayInput!, eventID: ID!): EventDay!
+  updateDay(input: EventDayInput!, eventID: ID!): EventDay!
+  deleteDay(dayID: ID!, eventID: ID!): Boolean!
 
-    # matches
-    createMatch(input: MatchInput!, roundID: ID!, eventID: ID!): Match!
-    updateMatch(input: MatchInput!, eventID: ID!): Match!
-    deleteMatch(matchID: ID!, eventID: ID!): Boolean!
+  # rounds
+  createRound(input: RoundInput!, dayID: ID!, eventID: ID!): Round!
+  deleteRound(roundID: ID!, eventID: ID!): Boolean!
+
+  # matches
+  createMatch(input: MatchInput!, roundID: ID!, eventID: ID!): Match!
+  updateMatch(input: MatchInput!, eventID: ID!): Match!
+  deleteMatch(matchID: ID!, eventID: ID!): Boolean!
+  reportMatchResults(input: MatchResultInput, matchID: ID!): Match!
 }
 
 type Query {
-    event(id: ID!): Event!
-    events(user: ID, max: Int=10, eventType: EventType, startsAfter: Date, endsBefore: Date): [Event!]!
-    canModifyEvent(id: ID!): Boolean!
-    myProfile: Profile!
+  event(id: ID!): Event!
+  events(
+    user: ID
+    max: Int = 10
+    eventType: EventType
+    startsAfter: Time
+    endsBefore: Time
+  ): [Event]!
+  canModifyEvent(id: ID!): Boolean!
+  myProfile: Profile!
 }
 
 type Round {
-    counter: Int!
-    id: ID!
-    matches: [Match!]!
+  counter: Int!
+  id: ID!
+  matches: [Match]!
 }
 
 type User {
-    id: ID!
-    name: String!
-    picture: String
+  id: ID!
+  name: String!
+  picture: String
+}
+
+type Player {
+  id: ID!
+  name: String!
 }
 
 input EventInput {
-    id: ID
-    name: String!
-    description: String!
-    type: EventType!
-    published: Boolean
-    registration: RegistrationType
-    days: [EventDayInput!]
-    headJudge: ID
-    judges: [ID!]
-    players: [ID!]
+  id: ID
+  name: String!
+  description: String!
+  type: EventType!
+  published: Boolean
+  registration: RegistrationType
+  days: [EventDayInput]
+  headJudge: ID
+  judges: [ID]
+  players: [ID]
 }
 
 input EventDayInput {
-    id: ID
-    endAt: Date!
-    rounds: [RoundInput!]
-    startAt: Date!
+  id: ID
+  endAt: Time!
+  rounds: [RoundInput]
+  startAt: Time!
+}
+
+input AddPlayerInput {
+  name: String!
+  eventID: ID!
 }
 
 input RoundInput {
-    id: ID
-    matches: [MatchInput!]
+  id: ID
+  matches: [MatchInput]
 }
 
 input MatchInput {
-    id: ID
-    player1: ID!
-    player1VictoryPoints: Int
-    player1MarginOfVictory: Int
-    player2: ID!
-    player2VictoryPoints: Int
-    player2MarginOfVictory: Int
-    bye: ID
-    blue: ID
-    winner: ID
+  id: ID
+  player1: ID!
+  player1VictoryPoints: Int
+  player1MarginOfVictory: Int
+  player2: ID!
+  player2VictoryPoints: Int
+  player2MarginOfVictory: Int
+  bye: ID
+  blue: ID
+  winner: ID
 }
 
-scalar Date
+input MatchResultInput {
+  imBlue: Boolean!
+  iWon: Boolean!
+  myVictoryPoints: Int!
+  myMarginOfVictory: Int!
+}
+
+scalar Time

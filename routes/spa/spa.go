@@ -12,12 +12,12 @@ type SPAHandler struct {
 }
 
 func (h SPAHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	path, err := filepath.Abs(r.URL.Path)
+	_, err := filepath.Abs(r.URL.Path)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	path = filepath.Join(h.StaticPath, h.IndexPath)
+	path := filepath.Join(h.StaticPath, h.IndexPath)
 
 	_, err = os.Stat(path)
 	if os.IsNotExist(err) {

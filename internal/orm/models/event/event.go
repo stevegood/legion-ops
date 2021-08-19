@@ -20,13 +20,13 @@ type Event struct {
 	Name         string      `gorm:"not null"`
 	Description  string      `gorm:"not null;type:text;default:''"`
 	Type         string      `gorm:"not null"`
-	CreatedAt    int64       `gorm:"not null"`
-	UpdatedAt    int64       `gorm:"not null"`
+	CreatedAt    time.Time   `gorm:"not null"`
+	UpdatedAt    time.Time   `gorm:"not null"`
 	Published    bool        `gorm:"not null;type:boolean;default:false"`
 	Registration string      `gorm:"not null;default:'CLOSED'"`
 	Organizer    user.User   `gorm:"not null;association_autoupdate:false;association_autocreate:false"`
 	OrganizerID  uuid.UUID   `gorm:"not null"`
-	Players      []user.User `gorm:"many2many:event_players;association_autoupdate:false;association_autocreate:false"`
+	Players      []Player    `gorm:"many2many:event_players;association_autoupdate:false;association_autocreate:false"`
 	Judges       []user.User `gorm:"many2many:event_judges;association_autoupdate:false;association_autocreate:false"`
 	HeadJudge    *user.User  `gorm:"association_autoupdate:false;association_autocreate:false"`
 	HeadJudgeID  *uuid.UUID
@@ -34,7 +34,6 @@ type Event struct {
 }
 
 func (event *Event) BeforeSave(scope *gorm.Scope) error {
-	var err error
 	if event.ID.String() == constants.BlankUUID {
 		id, err := models.GenerateUUID()
 		if err != nil {
@@ -47,18 +46,7 @@ func (event *Event) BeforeSave(scope *gorm.Scope) error {
 		}
 	}
 
-	unixNow := time.Now().UTC().Unix()
-
-	if event.CreatedAt == 0 {
-		err = scope.SetColumn("CreatedAt", unixNow)
-		if err != nil {
-			return err
-		}
-	}
-
-	err = scope.SetColumn("UpdatedAt", unixNow)
-
-	return err
+	return nil
 }
 
 func (event *Event) Prepare() {
@@ -68,10 +56,6 @@ func (event *Event) Prepare() {
 	}
 
 	event.ID = id
-	if event.CreatedAt == 0 {
-		event.CreatedAt = time.Now().UTC().Unix()
-	}
-	event.UpdatedAt = time.Now().UTC().Unix()
 	event.Name = html.EscapeString(strings.TrimSpace(event.Name))
 	event.Type = html.EscapeString(strings.TrimSpace(event.Type))
 }

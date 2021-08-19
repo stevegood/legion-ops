@@ -1,0 +1,40 @@
+version: '3'
+
+services:
+  postgres:
+    container_name: legion-ops_postgres
+    image: postgres:13-alpine
+    restart: always
+    env_file:
+      - ./.env
+    volumes:
+       - postgres:/data/postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - legionops
+    restart: unless-stopped
+
+  app:
+    container_name: legion-ops_app
+    build:
+      dockerfile: Dockerfile
+      context: .
+    env_file:
+      - ./.env
+    environment:
+      - DATABASE_URL=postgres://legionops:dbpasswd@postgres/legionops?sslmode=disable
+      - NODE_ENV=dev
+    ports:
+      - "3000:5000"
+    networks:
+      - legionops
+    depends_on:
+      - postgres
+
+networks:
+  legionops:
+    driver: bridge
+
+volumes:
+    postgres:

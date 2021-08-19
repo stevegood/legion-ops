@@ -8,6 +8,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 
+	"github.com/StarWarsDev/legion-ops/internal/constants"
 	"github.com/StarWarsDev/legion-ops/internal/orm/models/user"
 
 	"github.com/StarWarsDev/legion-ops/internal/gql/models"
@@ -16,7 +17,7 @@ import (
 	"github.com/StarWarsDev/legion-ops/internal/orm"
 )
 
-func FindEvents(db *gorm.DB, max int, forUser *user.User, eventType *models.EventType, startsAfter, endsBefore *string, onlyPublished bool) ([]event.Event, error) {
+func FindEvents(db *gorm.DB, max int, forUser *user.User, eventType *models.EventType, startsAfter, endsBefore *time.Time, onlyPublished bool) ([]event.Event, error) {
 	var dbRecords []event.Event
 	var count int
 
@@ -62,17 +63,15 @@ func FindEvents(db *gorm.DB, max int, forUser *user.User, eventType *models.Even
 	return dbRecords, nil
 }
 
-func eventIdsInRange(db *gorm.DB, startsAfter *string, endsBefore *string) ([]string, error) {
-	var ids []string
+func eventIdsInRange(db *gorm.DB, startsAfter *time.Time, endsBefore *time.Time) ([]string, error) {
+	var (
+		err error
+		ids []string
+	)
 
-	if startsAfter != nil && *startsAfter != "" && endsBefore == nil {
-		t, err := time.Parse(time.RFC3339, *startsAfter)
-		if err != nil {
-			return nil, err
-		}
-
+	if startsAfter != nil && endsBefore == nil {
 		var days []event.Day
-		err = db.Select("DISTINCT event_id").Where("start_at >= ?", t.Unix()).Find(&days).Error
+		err = db.Select("DISTINCT event_id").Where("start_at >= ?", startsAfter).Find(&days).Error
 		if err != nil {
 			return nil, err
 		}
@@ -81,14 +80,9 @@ func eventIdsInRange(db *gorm.DB, startsAfter *string, endsBefore *string) ([]st
 		}
 	}
 
-	if endsBefore != nil && *endsBefore != "" && startsAfter == nil {
-		t, err := time.Parse(time.RFC3339, *endsBefore)
-		if err != nil {
-			return nil, err
-		}
-
+	if endsBefore != nil && startsAfter == nil {
 		var days []event.Day
-		err = db.Select("DISTINCT event_id").Where("end_at <= ?", t.Unix()).Find(&days).Error
+		err = db.Select("DISTINCT event_id").Where("end_at <= ?", endsBefore).Find(&days).Error
 		if err != nil {
 			return nil, err
 		}
@@ -97,19 +91,13 @@ func eventIdsInRange(db *gorm.DB, startsAfter *string, endsBefore *string) ([]st
 		}
 	}
 
-	if startsAfter != nil && *startsAfter != "" && endsBefore != nil && *endsBefore != "" {
-		startT, err := time.Parse(time.RFC3339, *startsAfter)
-		if err != nil {
-			return nil, err
-		}
-
-		endT, err := time.Parse(time.RFC3339, *endsBefore)
-		if err != nil {
-			return nil, err
-		}
-
+	if startsAfter != nil && endsBefore != nil {
 		var days []event.Day
-		err = db.Select("DISTINCT event_id").Where("start_at >= ? AND end_at <= ?", startT.UTC().Unix(), endT.UTC().Unix()).Find(&days).Error
+		err = db.
+			Select("DISTINCT event_id").
+			Where("start_at >= ? AND end_at <= ?", startsAfter, endsBefore).
+			Find(&days).
+			Error
 		if err != nil {
 			return nil, err
 		}
@@ -187,7 +175,7 @@ func CreateEventWithInput(input *models.EventInput, organizer *user.User, orm *o
 		}
 
 		for _, judgeID := range input.Judges {
-			judge, err := GetUser(judgeID, tx)
+			judge, err := GetUser(*judgeID, tx)
 			if err != nil {
 				return err
 			}
@@ -195,7 +183,7 @@ func CreateEventWithInput(input *models.EventInput, organizer *user.User, orm *o
 		}
 
 		for _, playerID := range input.Players {
-			player, err := GetUser(playerID, tx)
+			player, err := GetPlayer(*playerID, tx)
 			if err != nil {
 				return err
 			}
@@ -203,19 +191,9 @@ func CreateEventWithInput(input *models.EventInput, organizer *user.User, orm *o
 		}
 
 		for _, day := range input.Days {
-			start, err := time.Parse(time.RFC3339, day.StartAt)
-			if err != nil {
-				return err
-			}
-
-			end, err := time.Parse(time.RFC3339, day.EndAt)
-			if err != nil {
-				return err
-			}
-
 			eventDay := event.Day{
-				StartAt: start.UTC().Unix(),
-				EndAt:   end.UTC().Unix(),
+				StartAt: day.StartAt,
+				EndAt:   day.EndAt,
 			}
 
 			for r, round := range day.Rounds {
@@ -224,12 +202,12 @@ func CreateEventWithInput(input *models.EventInput, organizer *user.User, orm *o
 				}
 
 				for _, match := range round.Matches {
-					p1, err := GetUser(match.Player1, tx)
+					p1, err := GetPlayer(match.Player1, tx)
 					if err != nil {
 						return err
 					}
 
-					p2, err := GetUser(match.Player2, tx)
+					p2, err := GetPlayer(match.Player2, tx)
 					if err != nil {
 						return err
 					}
@@ -255,7 +233,7 @@ func CreateEventWithInput(input *models.EventInput, organizer *user.User, orm *o
 					}
 
 					if match.Blue != nil && *match.Blue != "" {
-						blue, err := GetUser(*match.Blue, tx)
+						blue, err := GetPlayer(*match.Blue, tx)
 						if err != nil {
 							return err
 						}
@@ -263,7 +241,7 @@ func CreateEventWithInput(input *models.EventInput, organizer *user.User, orm *o
 					}
 
 					if match.Bye != nil && *match.Bye != "" {
-						bye, err := GetUser(*match.Bye, tx)
+						bye, err := GetPlayer(*match.Bye, tx)
 						if err != nil {
 							return err
 						}
@@ -271,7 +249,7 @@ func CreateEventWithInput(input *models.EventInput, organizer *user.User, orm *o
 					}
 
 					if match.Winner != nil && *match.Winner != "" {
-						winner, err := GetUser(*match.Winner, tx)
+						winner, err := GetPlayer(*match.Winner, tx)
 						if err != nil {
 							return err
 						}
@@ -337,9 +315,9 @@ func UpdateEventWithInput(input *models.EventInput, orm *orm.ORM) (event.Event, 
 		}
 
 		// manage players
-		var players []user.User
+		var players []event.Player
 		for _, pID := range input.Players {
-			player, err := GetUser(pID, tx)
+			player, err := GetPlayer(*pID, tx)
 			if err != nil {
 				return err
 			}
@@ -354,7 +332,7 @@ func UpdateEventWithInput(input *models.EventInput, orm *orm.ORM) (event.Event, 
 		// manage judges
 		var judges []user.User
 		for _, jID := range input.Judges {
-			judge, err := GetUser(jID, tx)
+			judge, err := GetUser(*jID, tx)
 			if err != nil {
 				return err
 			}
@@ -480,11 +458,19 @@ func SetRegistrationTypeForEventWithID(id string, registrationType models.Regist
 	return event, err
 }
 
-func AddPlayerToEvent(event *event.Event, player *user.User, orm *orm.ORM) (event.Event, error) {
-	println("AddPlayerToEvent", player.Username, event.Name)
+func AddPlayerToEvent(event *event.Event, player *event.Player, orm *orm.ORM) (event.Event, error) {
+	println("AddPlayerToEvent", player.Name, event.Name)
 	db := NewDB(orm)
 
 	err := db.Transaction(func(tx *gorm.DB) error {
+		if player.ID.String() == constants.BlankUUID {
+			p, err := CreatePlayer(*player, tx)
+			if err != nil {
+				return err
+			}
+			player = &p
+		}
+
 		event.Players = append(event.Players, *player)
 		err := tx.Model(&event).Association("Players").Replace(event.Players).Error
 		if err != nil {
@@ -535,7 +521,7 @@ func RemovePlayerFromEvent(event *event.Event, player *user.User, orm *orm.ORM) 
 	return dbEvent, err
 }
 
-func removePlayer(s []user.User, i int) []user.User {
+func removePlayer(s []event.Player, i int) []event.Player {
 	s[i] = s[len(s)-1]
 	// We do not need to put s[i] at the end, as it will be discarded anyway
 	return s[:len(s)-1]
@@ -553,19 +539,9 @@ func CreateDay(dayInput *models.EventDayInput, eventID string, orm *orm.ORM) (ev
 			return err
 		}
 
-		start, err := time.Parse(time.RFC3339, dayInput.StartAt)
-		if err != nil {
-			return err
-		}
-
-		end, err := time.Parse(time.RFC3339, dayInput.EndAt)
-		if err != nil {
-			return err
-		}
-
 		eventDay = event.Day{
-			StartAt: start.UTC().Unix(),
-			EndAt:   end.UTC().Unix(),
+			StartAt: dayInput.StartAt,
+			EndAt:   dayInput.EndAt,
 			Event:   dbEvent,
 		}
 
@@ -575,12 +551,12 @@ func CreateDay(dayInput *models.EventDayInput, eventID string, orm *orm.ORM) (ev
 			}
 
 			for _, match := range round.Matches {
-				p1, err := GetUser(match.Player1, tx)
+				p1, err := GetPlayer(match.Player1, tx)
 				if err != nil {
 					return err
 				}
 
-				p2, err := GetUser(match.Player2, tx)
+				p2, err := GetPlayer(match.Player2, tx)
 				if err != nil {
 					return err
 				}
@@ -606,7 +582,7 @@ func CreateDay(dayInput *models.EventDayInput, eventID string, orm *orm.ORM) (ev
 				}
 
 				if match.Blue != nil && *match.Blue != "" {
-					blue, err := GetUser(*match.Blue, tx)
+					blue, err := GetPlayer(*match.Blue, tx)
 					if err != nil {
 						return err
 					}
@@ -614,7 +590,7 @@ func CreateDay(dayInput *models.EventDayInput, eventID string, orm *orm.ORM) (ev
 				}
 
 				if match.Bye != nil && *match.Bye != "" {
-					bye, err := GetUser(*match.Bye, tx)
+					bye, err := GetPlayer(*match.Bye, tx)
 					if err != nil {
 						return err
 					}
@@ -622,7 +598,7 @@ func CreateDay(dayInput *models.EventDayInput, eventID string, orm *orm.ORM) (ev
 				}
 
 				if match.Winner != nil && *match.Winner != "" {
-					winner, err := GetUser(*match.Winner, tx)
+					winner, err := GetPlayer(*match.Winner, tx)
 					if err != nil {
 						return err
 					}
@@ -654,18 +630,9 @@ func UpdateDay(input *models.EventDayInput, db *gorm.DB) (event.Day, error) {
 	if err != nil {
 		return dayOut, err
 	}
-	start, err := time.Parse(time.RFC3339, input.StartAt)
-	if err != nil {
-		return dayOut, err
-	}
 
-	end, err := time.Parse(time.RFC3339, input.EndAt)
-	if err != nil {
-		return dayOut, err
-	}
-
-	day.StartAt = start.UTC().Unix()
-	day.EndAt = end.UTC().Unix()
+	day.StartAt = input.StartAt
+	day.EndAt = input.EndAt
 
 	err = db.Save(&day).Error
 	if err != nil {
@@ -724,12 +691,12 @@ func CreateRound(roundInput *models.RoundInput, dayID string, orm *orm.ORM) (eve
 		}
 
 		for _, match := range roundInput.Matches {
-			p1, err := GetUser(match.Player1, tx)
+			p1, err := GetPlayer(match.Player1, tx)
 			if err != nil {
 				return err
 			}
 
-			p2, err := GetUser(match.Player2, tx)
+			p2, err := GetPlayer(match.Player2, tx)
 			if err != nil {
 				return err
 			}
@@ -755,7 +722,7 @@ func CreateRound(roundInput *models.RoundInput, dayID string, orm *orm.ORM) (eve
 			}
 
 			if match.Blue != nil && *match.Blue != "" {
-				blue, err := GetUser(*match.Blue, tx)
+				blue, err := GetPlayer(*match.Blue, tx)
 				if err != nil {
 					return err
 				}
@@ -763,7 +730,7 @@ func CreateRound(roundInput *models.RoundInput, dayID string, orm *orm.ORM) (eve
 			}
 
 			if match.Bye != nil && *match.Bye != "" {
-				bye, err := GetUser(*match.Bye, tx)
+				bye, err := GetPlayer(*match.Bye, tx)
 				if err != nil {
 					return err
 				}
@@ -771,7 +738,7 @@ func CreateRound(roundInput *models.RoundInput, dayID string, orm *orm.ORM) (eve
 			}
 
 			if match.Winner != nil && *match.Winner != "" {
-				winner, err := GetUser(*match.Winner, tx)
+				winner, err := GetPlayer(*match.Winner, tx)
 				if err != nil {
 					return err
 				}
@@ -820,12 +787,12 @@ func CreateMatch(matchInput *models.MatchInput, roundID string, orm *orm.ORM) (e
 			return err
 		}
 
-		p1, err := GetUser(matchInput.Player1, tx)
+		p1, err := GetPlayer(matchInput.Player1, tx)
 		if err != nil {
 			return err
 		}
 
-		p2, err := GetUser(matchInput.Player2, tx)
+		p2, err := GetPlayer(matchInput.Player2, tx)
 		if err != nil {
 			return err
 		}
@@ -852,7 +819,7 @@ func CreateMatch(matchInput *models.MatchInput, roundID string, orm *orm.ORM) (e
 		}
 
 		if matchInput.Blue != nil && *matchInput.Blue != "" {
-			blue, err := GetUser(*matchInput.Blue, tx)
+			blue, err := GetPlayer(*matchInput.Blue, tx)
 			if err != nil {
 				return err
 			}
@@ -860,7 +827,7 @@ func CreateMatch(matchInput *models.MatchInput, roundID string, orm *orm.ORM) (e
 		}
 
 		if matchInput.Bye != nil && *matchInput.Bye != "" {
-			bye, err := GetUser(*matchInput.Bye, tx)
+			bye, err := GetPlayer(*matchInput.Bye, tx)
 			if err != nil {
 				return err
 			}
@@ -868,7 +835,7 @@ func CreateMatch(matchInput *models.MatchInput, roundID string, orm *orm.ORM) (e
 		}
 
 		if matchInput.Winner != nil && *matchInput.Winner != "" {
-			winner, err := GetUser(*matchInput.Winner, tx)
+			winner, err := GetPlayer(*matchInput.Winner, tx)
 			if err != nil {
 				return err
 			}
@@ -902,12 +869,12 @@ func UpdateMatch(input *models.MatchInput, db *gorm.DB) (event.Match, error) {
 		return matchOut, err
 	}
 
-	player1, err := GetUser(input.Player1, db)
+	player1, err := GetPlayer(input.Player1, db)
 	if err != nil {
 		return matchOut, err
 	}
 
-	player2, err := GetUser(input.Player2, db)
+	player2, err := GetPlayer(input.Player2, db)
 	if err != nil {
 		return matchOut, err
 	}
@@ -941,7 +908,7 @@ func UpdateMatch(input *models.MatchInput, db *gorm.DB) (event.Match, error) {
 
 	// blue player
 	if input.Blue != nil {
-		blue, err := GetUser(*input.Blue, db)
+		blue, err := GetPlayer(*input.Blue, db)
 		if err != nil {
 			return matchOut, err
 		}
@@ -953,7 +920,7 @@ func UpdateMatch(input *models.MatchInput, db *gorm.DB) (event.Match, error) {
 
 	// winner
 	if input.Winner != nil {
-		winner, err := GetUser(*input.Winner, db)
+		winner, err := GetPlayer(*input.Winner, db)
 		if err != nil {
 			return matchOut, err
 		}
@@ -965,7 +932,7 @@ func UpdateMatch(input *models.MatchInput, db *gorm.DB) (event.Match, error) {
 
 	// bye
 	if input.Bye != nil {
-		bye, err := GetUser(*input.Bye, db)
+		bye, err := GetPlayer(*input.Bye, db)
 		if err != nil {
 			return matchOut, err
 		}
