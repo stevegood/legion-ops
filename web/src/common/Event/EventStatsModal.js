@@ -59,7 +59,7 @@ export default function EventStats({ event: { id, name }, open, onClose }) {
 
   useEffect(() => {
     getStats()
-  }, [])
+  }, [getStats])
 
   useEffect(() => {
     if (!statsResults?.data?.eventPlayerStats || statsResults.fetching) return
