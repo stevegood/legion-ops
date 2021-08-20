@@ -19,8 +19,6 @@ type Player struct {
 	UpdatedAt time.Time `gorm:"not null"`
 	Event     Event     `gorm:"PRELOAD:false"`
 	EventID   uuid.UUID
-	Stats     *PlayerStats
-	StatsID   *uuid.UUID
 	Name      string
 }
 

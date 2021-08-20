@@ -1189,29 +1189,43 @@ func updatePlayerStats(player event.Player, mov, vp int64, winner, blue bool, op
 		Where("player_id = ?", player.ID.String()).
 		First(&stats).
 		Error
+	createNewRecord := false
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			// setup a new stats record for this player
-			stats = event.PlayerStats{
-				PlayerID: player.ID,
-			}
+			createNewRecord = true
 		} else {
 			return err
 		}
 	}
 
-	stats.TotalMOV += mov
-	stats.TotalVP += vp
-	stats.TotalMatches += 1
+	if createNewRecord {
+		log.Printf("Create a new stats record for %s", player.Name)
+		// setup a new stats record for this player
+		stats = event.PlayerStats{
+			PlayerID:     player.ID,
+			TotalMOV:     0,
+			TotalVP:      0,
+			TotalMatches: 0,
+			TotalWins:    0,
+			AverageMOV:   0,
+		}
+	}
+
+	log.Printf("Stats for %s", player.Name)
+	log.Printf("Stats ID %s", stats.ID.String())
+
+	stats.TotalMOV = stats.TotalMOV + mov
+	stats.TotalVP = stats.TotalVP + vp
+	stats.TotalMatches = stats.TotalMatches + 1
 
 	stats.AverageMOV = int64(stats.TotalMOV / stats.TotalMatches)
 
 	if winner {
-		stats.TotalWins += 1
+		stats.TotalWins = stats.TotalWins + 1
 	}
 
 	if blue {
-		stats.TimesBlue += 1
+		stats.TimesBlue = stats.TimesBlue + 1
 	}
 
 	err = db.Save(&stats).Error
