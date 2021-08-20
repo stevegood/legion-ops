@@ -123,6 +123,17 @@ type Player struct {
 	Name string `json:"name"`
 }
 
+type PlayerStats struct {
+	ID           string  `json:"id"`
+	Player       *Player `json:"player"`
+	TotalMov     int     `json:"totalMOV"`
+	AverageMov   int     `json:"averageMOV"`
+	TotalVp      int     `json:"totalVP"`
+	TotalWins    int     `json:"totalWins"`
+	TimesBlue    int     `json:"timesBlue"`
+	TotalMatches int     `json:"totalMatches"`
+}
+
 type Profile struct {
 	Account             *User    `json:"account"`
 	Username            string   `json:"username"`

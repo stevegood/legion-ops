@@ -94,6 +94,36 @@ func (r *queryResolver) Events(ctx context.Context, userID *string, max *int, ev
 	return records, err
 }
 
+func (r queryResolver) EventPlayerStats(ctx context.Context, eventID string) ([]*models.PlayerStats, error) {
+	var playerStats []*models.PlayerStats
+	db := data.NewDB(r.ORM)
+	// get the players
+	players, err := data.GetPlayers(eventID, db)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, player := range players {
+		// get the player stats
+		stats, err := data.GetPlayerStats(player, db)
+		if err != nil {
+			return nil, err
+		}
+
+		playerStats = append(playerStats, &models.PlayerStats{
+			ID:           stats.ID.String(),
+			Player:       mapper.GQLPlayer(player),
+			TotalMov:     int(stats.TotalMOV),
+			AverageMov:   int(stats.AverageMOV),
+			TotalVp:      int(stats.TotalMOV),
+			TotalWins:    int(stats.TotalWins),
+			TimesBlue:    int(stats.TimesBlue),
+			TotalMatches: int(stats.TotalMatches),
+		})
+	}
+	return playerStats, nil
+}
+
 // Mutation
 // events
 func (r *mutationResolver) CreateEvent(ctx context.Context, input models.EventInput) (*models.Event, error) {

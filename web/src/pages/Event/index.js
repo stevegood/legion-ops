@@ -24,6 +24,7 @@ import CreateMatchModal from "../../common/CreateMatchModal"
 import PublishButton from "./PublishButton"
 import { MY_PROFILE } from "constants/UserQueries"
 import EditMatchModal from "common/EditMatchModal"
+import EventStatsModal from "common/Event/EventStatsModal"
 
 export default function Event({
   match: {
@@ -37,6 +38,7 @@ export default function Event({
   const [selectedMatch, setSelectedMatch] = useState(null)
   const [editMatchIsOpen, setEditMatchIsOpen] = useState(false)
   const [selectedRound, setSelectedRound] = useState(null)
+  const [showStats, setShowStats] = useState(false)
   const [canModifyEvent] = useCanModifyEvent(id)
   const [myProfileResult] = useQuery({ query: MY_PROFILE })
 
@@ -241,6 +243,14 @@ export default function Event({
           />
         )}
 
+        {event && (
+          <EventStatsModal
+            event={event}
+            open={showStats}
+            onClose={() => setShowStats(false)}
+          />
+        )}
+
         <Grid item xs={9}>
           <Typography variant="h2" component="h1">
             {event.name}
@@ -292,6 +302,7 @@ export default function Event({
             onAddPlayer={() => handleAddPlayer()}
             onRegister={handleRegister}
             onLeave={handleLeave}
+            onShowStats={() => setShowStats(true)}
             onRegistrationChange={registrationType =>
               handleRegistrationChange(registrationType)
             }

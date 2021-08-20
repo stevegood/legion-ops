@@ -131,8 +131,22 @@ type Query {
     startsAfter: Time
     endsBefore: Time
   ): [Event]!
+
+  eventPlayerStats(eventID: ID!): [PlayerStats]!
+
   canModifyEvent(id: ID!): Boolean!
   myProfile: Profile!
+}
+
+type PlayerStats {
+  id: ID!
+  player: Player!
+  totalMOV: Int!
+  averageMOV: Int!
+  totalVP: Int!
+  totalWins: Int!
+  timesBlue: Int!
+  totalMatches: Int!
 }
 
 type Round {

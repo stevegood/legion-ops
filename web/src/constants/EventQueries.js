@@ -121,3 +121,21 @@ export const CAN_MODIFY_QUERY = gql`
     canModifyEvent(id: $id)
   }
 `
+
+export const EVENT_PLAYER_STATS_QUERY = gql`
+  query EventPlayerStats($eventID: ID!) {
+    eventPlayerStats(eventID: $eventID) {
+      id
+      player {
+        id
+        name
+      }
+      totalMOV
+      averageMOV
+      totalVP
+      totalWins
+      timesBlue
+      totalMatches
+    }
+  }
+`

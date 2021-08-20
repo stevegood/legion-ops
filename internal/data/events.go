@@ -1255,3 +1255,23 @@ func hasPlayedBefore(player, opponent event.Player, db *gorm.DB) bool {
 
 	return false
 }
+
+func GetPlayerStats(player *event.Player, db *gorm.DB) (*event.PlayerStats, error) {
+	var stats event.PlayerStats
+	err := db.Where("player_id = ?", player.ID.String()).First(&stats).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &stats, nil
+}
+
+func GetPlayers(eventID string, db *gorm.DB) ([]*event.Player, error) {
+	var players []*event.Player
+	err := db.Where("event_id = ?", eventID).Find(&players).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return players, nil
+}

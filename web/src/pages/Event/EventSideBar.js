@@ -41,6 +41,7 @@ export default function EventSideBar({
   onRegistrationChange,
   canModifyEvent,
   isAuthenticated,
+  onShowStats,
   profile,
 }) {
   const classes = useStyles()
@@ -200,6 +201,7 @@ export default function EventSideBar({
           showLeaveButton={showLeaveButton}
           onRegisterClick={onRegister}
           onLeaveClick={onLeave}
+          onShowStatsClick={onShowStats}
         >
           {[...event.players].sort(sortByName).map(player => (
             <UserListItem
