@@ -9,6 +9,8 @@ import {
   Typography,
 } from "@material-ui/core"
 import AddIcon from "@material-ui/icons/Add"
+import DoneAllIcon from "@material-ui/icons/DoneAll"
+import PeopleIcon from "@material-ui/icons/People"
 import Matches from "./Matches"
 
 export default function EventDayRounds({
@@ -18,6 +20,8 @@ export default function EventDayRounds({
   canModifyEvent,
   onAddRound,
   onAddMatch,
+  onCloseRound,
+  onGenerateMatches,
   setSelectedMatch,
 }) {
   const [sortedRounds] = useState(
@@ -39,7 +43,7 @@ export default function EventDayRounds({
       {sortedRounds.map((round, i) => (
         <Grid item key={round.id}>
           <Grid container direction="row" justify="flex-end">
-            <Grid item xs={11}>
+            <Grid item xs={10}>
               <Typography
                 variant="h6"
                 component="h3"
@@ -50,16 +54,43 @@ export default function EventDayRounds({
             </Grid>
 
             {canModifyEvent && (
-              <Grid item>
-                <Tooltip title={`Create a match in Round ${i + 1}`}>
-                  <IconButton
-                    size="small"
-                    onClick={() => onAddMatch({ round })}
-                  >
-                    <AddIcon />
-                  </IconButton>
-                </Tooltip>
-              </Grid>
+              <>
+                <Grid item>
+                  <Tooltip title={`Create a match in Round ${i + 1}`}>
+                    <IconButton
+                      disabled={round.closed}
+                      size="small"
+                      onClick={() => onAddMatch({ round })}
+                    >
+                      <AddIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Grid>
+
+                <Grid item>
+                  <Tooltip title={`Generate matches in Round ${i + 1}`}>
+                    <IconButton
+                      disabled={round.closed || round.matches.length > 0}
+                      size="small"
+                      onClick={() => onGenerateMatches({ round })}
+                    >
+                      <PeopleIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Grid>
+
+                <Grid item>
+                  <Tooltip title={`Close Round ${i + 1}`}>
+                    <IconButton
+                      disabled={round.closed}
+                      size="small"
+                      onClick={() => onCloseRound({ round })}
+                    >
+                      <DoneAllIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Grid>
+              </>
             )}
           </Grid>
 

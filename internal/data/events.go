@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/jinzhu/gorm"
 
 	"github.com/StarWarsDev/legion-ops/internal/constants"
@@ -133,6 +134,7 @@ func GetDayWithID(id string, db *gorm.DB) (event.Day, error) {
 }
 
 func GetRoundWithID(id string, db *gorm.DB) (event.Round, error) {
+	log.Printf("Getting round with id %s", id)
 	var round event.Round
 	err := db.
 		Set("gorm:auto_preload", true).
@@ -965,4 +967,311 @@ func DeleteMatch(id string, orm *orm.ORM) (bool, error) {
 	})
 
 	return err == nil, err
+}
+
+func GenerateMatchPairings(eventID, roundID string, o *orm.ORM) ([]event.Match, error) {
+	db := NewDB(o)
+
+	var generatedMatches []event.Match
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		var err error
+
+		// get the round
+		round, err := GetRoundWithID(roundID, tx)
+		if err != nil {
+			return err
+		}
+
+		// delete any existing matches
+		for _, match := range round.Matches {
+			_, err = DeleteMatch(match.ID.String(), o)
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+
+		// get player stats for each player in the event
+		sql := `
+		SELECT *
+		FROM player_stats
+		WHERE player_id in (
+				select id from players where event_id = ?
+		)
+		ORDER BY total_wins DESC
+		`
+		var stats []event.PlayerStats
+
+		err = tx.
+			Raw(sql, eventID).
+			Scan(&stats).
+			Error
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		var players []event.Player
+		for _, s := range stats {
+			player, err := GetPlayer(s.PlayerID.String(), tx)
+			if err != nil {
+				return err
+			}
+
+			players = append(players, player)
+		}
+
+		// if players is an odd length we need to create a "Bye Player"
+		// and add them to playersB.
+		byePlayerName := "Bye Player"
+		if len(players)%2 != 0 {
+			byePlayer := event.Player{
+				Name:    byePlayerName,
+				EventID: uuid.FromStringOrNil(eventID),
+			}
+
+			err = tx.Save(&byePlayer).Error
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+
+			players = append(players, byePlayer)
+		}
+
+		assigned := map[uuid.UUID]uuid.UUID{}
+		// loop through the available players
+		for _, player := range players {
+			// loop through the players again to find an opponent
+			for _, opponent := range players {
+				// if opponent is the player then skip
+				isSelf := player.ID == opponent.ID
+				_, opponentAssigned := assigned[opponent.ID]
+				_, playerAssigned := assigned[player.ID]
+
+				if !isSelf && !opponentAssigned && !playerAssigned {
+					// has this player already played the opponent?
+					playedBefore := hasPlayedBefore(player, opponent, tx)
+
+					if !playedBefore {
+						// looks like a valid pairing!
+						// create a match
+						m := event.Match{
+							Player1: player,
+							Player2: opponent,
+							Round:   round,
+						}
+
+						if player.Name == byePlayerName {
+							m.Bye = &opponent
+						}
+
+						if opponent.Name == byePlayerName {
+							m.Bye = &player
+						}
+
+						// save the match
+						err := tx.Save(&m).Error
+						if err != nil {
+							tx.Rollback()
+							return err
+						}
+
+						// map the assignment for future checks
+						assigned[opponent.ID] = player.ID
+						assigned[player.ID] = opponent.ID
+
+						// add the match to the slice
+						generatedMatches = append(generatedMatches, m)
+					}
+				}
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return generatedMatches, nil
+}
+
+func CloseRound(id string, o *orm.ORM) (*event.Round, error) {
+	log.Printf("Closing round with id %s", id)
+	db := NewDB(o)
+	var (
+		round event.Round
+		err   error
+	)
+
+	err = db.Transaction(func(tx *gorm.DB) error {
+		var err error
+
+		if round, err = GetRoundWithID(id, tx); err != nil {
+			tx.Rollback()
+			log.Printf("error getting round %v", err)
+			return err
+		}
+
+		if !round.Closed {
+			round.Closed = true
+
+			if err = tx.Save(&round).Error; err != nil {
+				tx.Rollback()
+				log.Printf("error saving round %v", err)
+				return err
+			}
+
+			// go over each match and update each player's stats
+			for _, match := range round.Matches {
+				// player 1
+				err = updatePlayerStats(
+					match.Player1,
+					int64(match.Player1MarginOfVictory),
+					int64(match.Player1VictoryPoints),
+					match.Winner.ID == match.Player1.ID,
+					match.Blue.ID == match.Player1.ID,
+					match.Player2,
+					tx,
+				)
+
+				if err != nil {
+					tx.Rollback()
+					log.Printf("error updating p1 stats %v", err)
+					return err
+				}
+
+				// player 2
+				err = updatePlayerStats(
+					match.Player2,
+					int64(match.Player2MarginOfVictory),
+					int64(match.Player2VictoryPoints),
+					match.Winner.ID == match.Player2.ID,
+					match.Blue.ID == match.Player2.ID,
+					match.Player1,
+					tx,
+				)
+
+				if err != nil {
+					tx.Rollback()
+					log.Printf("error updating p2 stats %v", err)
+					return err
+				}
+
+				// log who the players played against
+				if err = savePlayerOpponent(match.Player1, match.Player2, tx); err != nil {
+					tx.Rollback()
+					return err
+				}
+
+				if err = savePlayerOpponent(match.Player2, match.Player1, tx); err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &round, nil
+}
+
+func updatePlayerStats(player event.Player, mov, vp int64, winner, blue bool, opponent event.Player, db *gorm.DB) error {
+	var stats event.PlayerStats
+	err := db.
+		Where("player_id = ?", player.ID.String()).
+		First(&stats).
+		Error
+	createNewRecord := false
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			createNewRecord = true
+		} else {
+			return err
+		}
+	}
+
+	if createNewRecord {
+		log.Printf("Create a new stats record for %s", player.Name)
+		// setup a new stats record for this player
+		stats = event.PlayerStats{
+			PlayerID:     player.ID,
+			TotalMOV:     0,
+			TotalVP:      0,
+			TotalMatches: 0,
+			TotalWins:    0,
+			AverageMOV:   0,
+		}
+	}
+
+	log.Printf("Stats for %s", player.Name)
+	log.Printf("Stats ID %s", stats.ID.String())
+
+	stats.TotalMOV = stats.TotalMOV + mov
+	stats.TotalVP = stats.TotalVP + vp
+	stats.TotalMatches = stats.TotalMatches + 1
+
+	stats.AverageMOV = int64(stats.TotalMOV / stats.TotalMatches)
+
+	if winner {
+		stats.TotalWins = stats.TotalWins + 1
+	}
+
+	if blue {
+		stats.TimesBlue = stats.TimesBlue + 1
+	}
+
+	err = db.Save(&stats).Error
+
+	return err
+}
+
+func savePlayerOpponent(player, opponent event.Player, db *gorm.DB) error {
+	po := event.PlayerOpponent{
+		Player:   player,
+		Opponent: opponent,
+	}
+
+	return db.Save(&po).Error
+}
+
+func hasPlayedBefore(player, opponent event.Player, db *gorm.DB) bool {
+	var pos []event.PlayerOpponent
+
+	db.Where("player_id = ?", player.ID.String()).Find(&pos)
+
+	for _, po := range pos {
+		if po.OpponentID == opponent.ID {
+			return true
+		}
+	}
+
+	return false
+}
+
+func GetPlayerStats(player *event.Player, db *gorm.DB) (*event.PlayerStats, error) {
+	var stats event.PlayerStats
+	err := db.Where("player_id = ?", player.ID.String()).First(&stats).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &stats, nil
+}
+
+func GetPlayers(eventID string, db *gorm.DB) ([]*event.Player, error) {
+	var players []*event.Player
+	err := db.Where("event_id = ?", eventID).Find(&players).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return players, nil
 }

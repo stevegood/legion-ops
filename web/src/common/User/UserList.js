@@ -8,6 +8,7 @@ export default function UserList({
   showLeaveButton,
   onRegisterClick,
   onLeaveClick,
+  onShowStatsClick,
 }) {
   return (
     <Fragment>
@@ -17,6 +18,14 @@ export default function UserList({
             {label}
           </Typography>
         </Grid>
+
+        {onShowStatsClick !== undefined && (
+          <Grid item>
+            <Button size="small" onClick={onShowStatsClick}>
+              Show Stats
+            </Button>
+          </Grid>
+        )}
 
         {showRegisterButton && (
           <Grid item>

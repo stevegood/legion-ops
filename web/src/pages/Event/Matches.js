@@ -25,7 +25,11 @@ export default function Matches({ round, matches, setSelectedMatch }) {
     <>
       <Grid container direction="column" spacing={2}>
         {sortedMatches.map(match => (
-          <Button key={match.id} onClick={() => handleMatchClick(match)}>
+          <Button
+            key={match.id}
+            disabled={round.closed}
+            onClick={() => handleMatchClick(match)}
+          >
             <Grid item xs={12}>
               <Grid container direction="row" justify="space-between">
                 <Grid item xs={5}>

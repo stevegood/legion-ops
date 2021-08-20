@@ -1,7 +1,7 @@
 export function fmtEventType(eventType) {
   switch (eventType) {
-    case "FFGOP":
-      return "FFG Organized Play"
+    case "FTOP":
+      return "The Fifth Trooper Organized Play"
     case "LEAGUE":
       return "League Play"
     default:

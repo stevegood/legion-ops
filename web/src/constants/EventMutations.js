@@ -66,6 +66,21 @@ export const CREATE_ROUND = gql`
     }
   }
 `
+
+export const CLOSE_ROUND = gql`
+  mutation CloseRound($roundID: ID!, $eventID: ID!) {
+    closeRound(roundID: $roundID, eventID: $eventID)
+  }
+`
+
+export const GENERATE_MATCHES = gql`
+  mutation GenerateMatches($eventID: ID!, $roundID: ID!) {
+    generateMatches(eventID: $eventID, roundID: $roundID) {
+      id
+    }
+  }
+`
+
 export const CREATE_MATCH = gql`
   mutation CreateMatch($eventID: ID!, $roundID: ID!, $input: MatchInput!) {
     createMatch(eventID: $eventID, roundID: $roundID, input: $input) {

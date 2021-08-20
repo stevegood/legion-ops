@@ -123,6 +123,17 @@ type Player struct {
 	Name string `json:"name"`
 }
 
+type PlayerStats struct {
+	ID           string  `json:"id"`
+	Player       *Player `json:"player"`
+	TotalMov     int     `json:"totalMOV"`
+	AverageMov   int     `json:"averageMOV"`
+	TotalVp      int     `json:"totalVP"`
+	TotalWins    int     `json:"totalWins"`
+	TimesBlue    int     `json:"timesBlue"`
+	TotalMatches int     `json:"totalMatches"`
+}
+
 type Profile struct {
 	Account             *User    `json:"account"`
 	Username            string   `json:"username"`
@@ -134,6 +145,7 @@ type Profile struct {
 type Round struct {
 	Counter int      `json:"counter"`
 	ID      string   `json:"id"`
+	Closed  bool     `json:"closed"`
 	Matches []*Match `json:"matches"`
 }
 
@@ -152,19 +164,19 @@ type EventType string
 
 const (
 	EventTypeLeague EventType = "LEAGUE"
-	EventTypeFfgop  EventType = "FFGOP"
+	EventTypeFtop   EventType = "FTOP"
 	EventTypeOther  EventType = "OTHER"
 )
 
 var AllEventType = []EventType{
 	EventTypeLeague,
-	EventTypeFfgop,
+	EventTypeFtop,
 	EventTypeOther,
 }
 
 func (e EventType) IsValid() bool {
 	switch e {
-	case EventTypeLeague, EventTypeFfgop, EventTypeOther:
+	case EventTypeLeague, EventTypeFtop, EventTypeOther:
 		return true
 	}
 	return false

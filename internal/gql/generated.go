@@ -99,6 +99,7 @@ type ComplexityRoot struct {
 
 	Mutation struct {
 		AddPlayer          func(childComplexity int, input models.AddPlayerInput) int
+		CloseRound         func(childComplexity int, roundID string, eventID string) int
 		CreateDay          func(childComplexity int, input models.EventDayInput, eventID string) int
 		CreateEvent        func(childComplexity int, input models.EventInput) int
 		CreateMatch        func(childComplexity int, input models.MatchInput, roundID string, eventID string) int
@@ -107,6 +108,7 @@ type ComplexityRoot struct {
 		DeleteEvent        func(childComplexity int, eventID string) int
 		DeleteMatch        func(childComplexity int, matchID string, eventID string) int
 		DeleteRound        func(childComplexity int, roundID string, eventID string) int
+		GenerateMatches    func(childComplexity int, eventID string, roundID string) int
 		JoinEvent          func(childComplexity int, eventID string) int
 		LeaveEvent         func(childComplexity int, eventID string) int
 		PublishEvent       func(childComplexity int, eventID string) int
@@ -123,6 +125,17 @@ type ComplexityRoot struct {
 		Name func(childComplexity int) int
 	}
 
+	PlayerStats struct {
+		AverageMov   func(childComplexity int) int
+		ID           func(childComplexity int) int
+		Player       func(childComplexity int) int
+		TimesBlue    func(childComplexity int) int
+		TotalMatches func(childComplexity int) int
+		TotalMov     func(childComplexity int) int
+		TotalVp      func(childComplexity int) int
+		TotalWins    func(childComplexity int) int
+	}
+
 	Profile struct {
 		Account             func(childComplexity int) int
 		JudgingEvents       func(childComplexity int) int
@@ -132,13 +145,15 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		CanModifyEvent func(childComplexity int, id string) int
-		Event          func(childComplexity int, id string) int
-		Events         func(childComplexity int, user *string, max *int, eventType *models.EventType, startsAfter *time.Time, endsBefore *time.Time) int
-		MyProfile      func(childComplexity int) int
+		CanModifyEvent   func(childComplexity int, id string) int
+		Event            func(childComplexity int, id string) int
+		EventPlayerStats func(childComplexity int, eventID string) int
+		Events           func(childComplexity int, user *string, max *int, eventType *models.EventType, startsAfter *time.Time, endsBefore *time.Time) int
+		MyProfile        func(childComplexity int) int
 	}
 
 	Round struct {
+		Closed  func(childComplexity int) int
 		Counter func(childComplexity int) int
 		ID      func(childComplexity int) int
 		Matches func(childComplexity int) int
@@ -166,14 +181,17 @@ type MutationResolver interface {
 	DeleteDay(ctx context.Context, dayID string, eventID string) (bool, error)
 	CreateRound(ctx context.Context, input models.RoundInput, dayID string, eventID string) (*models.Round, error)
 	DeleteRound(ctx context.Context, roundID string, eventID string) (bool, error)
+	CloseRound(ctx context.Context, roundID string, eventID string) (bool, error)
 	CreateMatch(ctx context.Context, input models.MatchInput, roundID string, eventID string) (*models.Match, error)
 	UpdateMatch(ctx context.Context, input models.MatchInput, eventID string) (*models.Match, error)
 	DeleteMatch(ctx context.Context, matchID string, eventID string) (bool, error)
 	ReportMatchResults(ctx context.Context, input *models.MatchResultInput, matchID string) (*models.Match, error)
+	GenerateMatches(ctx context.Context, eventID string, roundID string) ([]*models.Match, error)
 }
 type QueryResolver interface {
 	Event(ctx context.Context, id string) (*models.Event, error)
 	Events(ctx context.Context, user *string, max *int, eventType *models.EventType, startsAfter *time.Time, endsBefore *time.Time) ([]*models.Event, error)
+	EventPlayerStats(ctx context.Context, eventID string) ([]*models.PlayerStats, error)
 	CanModifyEvent(ctx context.Context, id string) (bool, error)
 	MyProfile(ctx context.Context) (*models.Profile, error)
 }
@@ -485,6 +503,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.AddPlayer(childComplexity, args["input"].(models.AddPlayerInput)), true
 
+	case "Mutation.closeRound":
+		if e.complexity.Mutation.CloseRound == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_closeRound_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CloseRound(childComplexity, args["roundID"].(string), args["eventID"].(string)), true
+
 	case "Mutation.createDay":
 		if e.complexity.Mutation.CreateDay == nil {
 			break
@@ -580,6 +610,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.DeleteRound(childComplexity, args["roundID"].(string), args["eventID"].(string)), true
+
+	case "Mutation.generateMatches":
+		if e.complexity.Mutation.GenerateMatches == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_generateMatches_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.GenerateMatches(childComplexity, args["eventID"].(string), args["roundID"].(string)), true
 
 	case "Mutation.joinEvent":
 		if e.complexity.Mutation.JoinEvent == nil {
@@ -703,6 +745,62 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Player.Name(childComplexity), true
 
+	case "PlayerStats.averageMOV":
+		if e.complexity.PlayerStats.AverageMov == nil {
+			break
+		}
+
+		return e.complexity.PlayerStats.AverageMov(childComplexity), true
+
+	case "PlayerStats.id":
+		if e.complexity.PlayerStats.ID == nil {
+			break
+		}
+
+		return e.complexity.PlayerStats.ID(childComplexity), true
+
+	case "PlayerStats.player":
+		if e.complexity.PlayerStats.Player == nil {
+			break
+		}
+
+		return e.complexity.PlayerStats.Player(childComplexity), true
+
+	case "PlayerStats.timesBlue":
+		if e.complexity.PlayerStats.TimesBlue == nil {
+			break
+		}
+
+		return e.complexity.PlayerStats.TimesBlue(childComplexity), true
+
+	case "PlayerStats.totalMatches":
+		if e.complexity.PlayerStats.TotalMatches == nil {
+			break
+		}
+
+		return e.complexity.PlayerStats.TotalMatches(childComplexity), true
+
+	case "PlayerStats.totalMOV":
+		if e.complexity.PlayerStats.TotalMov == nil {
+			break
+		}
+
+		return e.complexity.PlayerStats.TotalMov(childComplexity), true
+
+	case "PlayerStats.totalVP":
+		if e.complexity.PlayerStats.TotalVp == nil {
+			break
+		}
+
+		return e.complexity.PlayerStats.TotalVp(childComplexity), true
+
+	case "PlayerStats.totalWins":
+		if e.complexity.PlayerStats.TotalWins == nil {
+			break
+		}
+
+		return e.complexity.PlayerStats.TotalWins(childComplexity), true
+
 	case "Profile.account":
 		if e.complexity.Profile.Account == nil {
 			break
@@ -762,6 +860,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.Event(childComplexity, args["id"].(string)), true
 
+	case "Query.eventPlayerStats":
+		if e.complexity.Query.EventPlayerStats == nil {
+			break
+		}
+
+		args, err := ec.field_Query_eventPlayerStats_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.EventPlayerStats(childComplexity, args["eventID"].(string)), true
+
 	case "Query.events":
 		if e.complexity.Query.Events == nil {
 			break
@@ -780,6 +890,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Query.MyProfile(childComplexity), true
+
+	case "Round.closed":
+		if e.complexity.Round.Closed == nil {
+			break
+		}
+
+		return e.complexity.Round.Closed(childComplexity), true
 
 	case "Round.counter":
 		if e.complexity.Round.Counter == nil {
@@ -910,8 +1027,8 @@ type Profile {
 enum EventType {
   # Indicates a League event
   LEAGUE
-  # Indicates an FFG Organized Play event
-  FFGOP
+  # Indicates a Fifth Trooper Organized Play event
+  FTOP
   # Indicates some other, free form event
   OTHER
 }
@@ -1001,12 +1118,14 @@ type Mutation {
   # rounds
   createRound(input: RoundInput!, dayID: ID!, eventID: ID!): Round!
   deleteRound(roundID: ID!, eventID: ID!): Boolean!
+  closeRound(roundID: ID!, eventID: ID!): Boolean!
 
   # matches
   createMatch(input: MatchInput!, roundID: ID!, eventID: ID!): Match!
   updateMatch(input: MatchInput!, eventID: ID!): Match!
   deleteMatch(matchID: ID!, eventID: ID!): Boolean!
   reportMatchResults(input: MatchResultInput, matchID: ID!): Match!
+  generateMatches(eventID: ID!, roundID: ID!): [Match]!
 }
 
 type Query {
@@ -1018,13 +1137,28 @@ type Query {
     startsAfter: Time
     endsBefore: Time
   ): [Event]!
+
+  eventPlayerStats(eventID: ID!): [PlayerStats]!
+
   canModifyEvent(id: ID!): Boolean!
   myProfile: Profile!
+}
+
+type PlayerStats {
+  id: ID!
+  player: Player!
+  totalMOV: Int!
+  averageMOV: Int!
+  totalVP: Int!
+  totalWins: Int!
+  timesBlue: Int!
+  totalMatches: Int!
 }
 
 type Round {
   counter: Int!
   id: ID!
+  closed: Boolean!
   matches: [Match]!
 }
 
@@ -1110,6 +1244,30 @@ func (ec *executionContext) field_Mutation_addPlayer_args(ctx context.Context, r
 		}
 	}
 	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_closeRound_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["roundID"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("roundID"))
+		arg0, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["roundID"] = arg0
+	var arg1 string
+	if tmp, ok := rawArgs["eventID"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("eventID"))
+		arg1, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["eventID"] = arg1
 	return args, nil
 }
 
@@ -1302,6 +1460,30 @@ func (ec *executionContext) field_Mutation_deleteRound_args(ctx context.Context,
 		}
 	}
 	args["eventID"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_generateMatches_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["eventID"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("eventID"))
+		arg0, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["eventID"] = arg0
+	var arg1 string
+	if tmp, ok := rawArgs["roundID"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("roundID"))
+		arg1, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["roundID"] = arg1
 	return args, nil
 }
 
@@ -1503,6 +1685,21 @@ func (ec *executionContext) field_Query_canModifyEvent_args(ctx context.Context,
 		}
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_eventPlayerStats_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["eventID"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("eventID"))
+		arg0, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["eventID"] = arg0
 	return args, nil
 }
 
@@ -3586,6 +3783,48 @@ func (ec *executionContext) _Mutation_deleteRound(ctx context.Context, field gra
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Mutation_closeRound(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_closeRound_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().CloseRound(rctx, args["roundID"].(string), args["eventID"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Mutation_createMatch(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -3754,6 +3993,48 @@ func (ec *executionContext) _Mutation_reportMatchResults(ctx context.Context, fi
 	return ec.marshalNMatch2ᚖgithubᚗcomᚋStarWarsDevᚋlegionᚑopsᚋinternalᚋgqlᚋmodelsᚐMatch(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Mutation_generateMatches(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_generateMatches_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().GenerateMatches(rctx, args["eventID"].(string), args["roundID"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*models.Match)
+	fc.Result = res
+	return ec.marshalNMatch2ᚕᚖgithubᚗcomᚋStarWarsDevᚋlegionᚑopsᚋinternalᚋgqlᚋmodelsᚐMatch(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Player_id(ctx context.Context, field graphql.CollectedField, obj *models.Player) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -3822,6 +4103,286 @@ func (ec *executionContext) _Player_name(ctx context.Context, field graphql.Coll
 	res := resTmp.(string)
 	fc.Result = res
 	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _PlayerStats_id(ctx context.Context, field graphql.CollectedField, obj *models.PlayerStats) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "PlayerStats",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNID2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _PlayerStats_player(ctx context.Context, field graphql.CollectedField, obj *models.PlayerStats) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "PlayerStats",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Player, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*models.Player)
+	fc.Result = res
+	return ec.marshalNPlayer2ᚖgithubᚗcomᚋStarWarsDevᚋlegionᚑopsᚋinternalᚋgqlᚋmodelsᚐPlayer(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _PlayerStats_totalMOV(ctx context.Context, field graphql.CollectedField, obj *models.PlayerStats) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "PlayerStats",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TotalMov, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _PlayerStats_averageMOV(ctx context.Context, field graphql.CollectedField, obj *models.PlayerStats) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "PlayerStats",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.AverageMov, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _PlayerStats_totalVP(ctx context.Context, field graphql.CollectedField, obj *models.PlayerStats) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "PlayerStats",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TotalVp, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _PlayerStats_totalWins(ctx context.Context, field graphql.CollectedField, obj *models.PlayerStats) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "PlayerStats",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TotalWins, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _PlayerStats_timesBlue(ctx context.Context, field graphql.CollectedField, obj *models.PlayerStats) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "PlayerStats",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TimesBlue, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _PlayerStats_totalMatches(ctx context.Context, field graphql.CollectedField, obj *models.PlayerStats) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "PlayerStats",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TotalMatches, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Profile_account(ctx context.Context, field graphql.CollectedField, obj *models.Profile) (ret graphql.Marshaler) {
@@ -4083,6 +4644,48 @@ func (ec *executionContext) _Query_events(ctx context.Context, field graphql.Col
 	return ec.marshalNEvent2ᚕᚖgithubᚗcomᚋStarWarsDevᚋlegionᚑopsᚋinternalᚋgqlᚋmodelsᚐEvent(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Query_eventPlayerStats(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Query_eventPlayerStats_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().EventPlayerStats(rctx, args["eventID"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*models.PlayerStats)
+	fc.Result = res
+	return ec.marshalNPlayerStats2ᚕᚖgithubᚗcomᚋStarWarsDevᚋlegionᚑopsᚋinternalᚋgqlᚋmodelsᚐPlayerStats(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Query_canModifyEvent(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -4299,6 +4902,41 @@ func (ec *executionContext) _Round_id(ctx context.Context, field graphql.Collect
 	res := resTmp.(string)
 	fc.Result = res
 	return ec.marshalNID2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Round_closed(ctx context.Context, field graphql.CollectedField, obj *models.Round) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Round",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Closed, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Round_matches(ctx context.Context, field graphql.CollectedField, obj *models.Round) (ret graphql.Marshaler) {
@@ -6259,6 +6897,11 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
+		case "closeRound":
+			out.Values[i] = ec._Mutation_closeRound(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		case "createMatch":
 			out.Values[i] = ec._Mutation_createMatch(ctx, field)
 			if out.Values[i] == graphql.Null {
@@ -6276,6 +6919,11 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			}
 		case "reportMatchResults":
 			out.Values[i] = ec._Mutation_reportMatchResults(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "generateMatches":
+			out.Values[i] = ec._Mutation_generateMatches(ctx, field)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6308,6 +6956,68 @@ func (ec *executionContext) _Player(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "name":
 			out.Values[i] = ec._Player_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var playerStatsImplementors = []string{"PlayerStats"}
+
+func (ec *executionContext) _PlayerStats(ctx context.Context, sel ast.SelectionSet, obj *models.PlayerStats) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, playerStatsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PlayerStats")
+		case "id":
+			out.Values[i] = ec._PlayerStats_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "player":
+			out.Values[i] = ec._PlayerStats_player(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "totalMOV":
+			out.Values[i] = ec._PlayerStats_totalMOV(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "averageMOV":
+			out.Values[i] = ec._PlayerStats_averageMOV(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "totalVP":
+			out.Values[i] = ec._PlayerStats_totalVP(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "totalWins":
+			out.Values[i] = ec._PlayerStats_totalWins(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "timesBlue":
+			out.Values[i] = ec._PlayerStats_timesBlue(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "totalMatches":
+			out.Values[i] = ec._PlayerStats_totalMatches(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -6412,6 +7122,20 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				}
 				return res
 			})
+		case "eventPlayerStats":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_eventPlayerStats(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			})
 		case "canModifyEvent":
 			field := field
 			out.Concurrently(i, func() (res graphql.Marshaler) {
@@ -6473,6 +7197,11 @@ func (ec *executionContext) _Round(ctx context.Context, sel ast.SelectionSet, ob
 			}
 		case "id":
 			out.Values[i] = ec._Round_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "closed":
+			out.Values[i] = ec._Round_closed(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -7044,6 +7773,43 @@ func (ec *executionContext) marshalNPlayer2ᚖgithubᚗcomᚋStarWarsDevᚋlegio
 		return graphql.Null
 	}
 	return ec._Player(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNPlayerStats2ᚕᚖgithubᚗcomᚋStarWarsDevᚋlegionᚑopsᚋinternalᚋgqlᚋmodelsᚐPlayerStats(ctx context.Context, sel ast.SelectionSet, v []*models.PlayerStats) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalOPlayerStats2ᚖgithubᚗcomᚋStarWarsDevᚋlegionᚑopsᚋinternalᚋgqlᚋmodelsᚐPlayerStats(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+	return ret
 }
 
 func (ec *executionContext) marshalNProfile2githubᚗcomᚋStarWarsDevᚋlegionᚑopsᚋinternalᚋgqlᚋmodelsᚐProfile(ctx context.Context, sel ast.SelectionSet, v models.Profile) graphql.Marshaler {
@@ -7636,6 +8402,13 @@ func (ec *executionContext) marshalOPlayer2ᚖgithubᚗcomᚋStarWarsDevᚋlegio
 		return graphql.Null
 	}
 	return ec._Player(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOPlayerStats2ᚖgithubᚗcomᚋStarWarsDevᚋlegionᚑopsᚋinternalᚋgqlᚋmodelsᚐPlayerStats(ctx context.Context, sel ast.SelectionSet, v *models.PlayerStats) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._PlayerStats(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalORegistrationType2ᚖgithubᚗcomᚋStarWarsDevᚋlegionᚑopsᚋinternalᚋgqlᚋmodelsᚐRegistrationType(ctx context.Context, v interface{}) (*models.RegistrationType, error) {

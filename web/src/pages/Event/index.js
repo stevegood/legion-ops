@@ -10,7 +10,9 @@ import EventDays from "./EventDays"
 import EditButton from "./EditButton"
 import { EVENT_QUERY } from "constants/EventQueries"
 import {
+  CLOSE_ROUND,
   CREATE_ROUND,
+  GENERATE_MATCHES,
   JOIN_EVENT,
   LEAVE_EVENT,
   PUBLISH_EVENT,
@@ -22,6 +24,7 @@ import CreateMatchModal from "../../common/CreateMatchModal"
 import PublishButton from "./PublishButton"
 import { MY_PROFILE } from "constants/UserQueries"
 import EditMatchModal from "common/EditMatchModal"
+import EventStatsModal from "common/Event/EventStatsModal"
 
 export default function Event({
   match: {
@@ -35,6 +38,7 @@ export default function Event({
   const [selectedMatch, setSelectedMatch] = useState(null)
   const [editMatchIsOpen, setEditMatchIsOpen] = useState(false)
   const [selectedRound, setSelectedRound] = useState(null)
+  const [showStats, setShowStats] = useState(false)
   const [canModifyEvent] = useCanModifyEvent(id)
   const [myProfileResult] = useQuery({ query: MY_PROFILE })
 
@@ -51,6 +55,12 @@ export default function Event({
 
   // mutation for adding a round
   const [createRoundResult, createRound] = useMutation(CREATE_ROUND)
+
+  // mutation for closing a round
+  const [closeRoundResult, closeRound] = useMutation(CLOSE_ROUND)
+
+  // mutation for generating matches
+  const [generateMatchesResult, generateMatches] = useMutation(GENERATE_MATCHES)
 
   // mutation for publishing an event
   const [publishEventResult, publishEvent] = useMutation(PUBLISH_EVENT)
@@ -78,6 +88,12 @@ export default function Event({
   }, [createRoundResult, refetchEvent])
 
   useEffect(() => {
+    if (closeRoundResult.error) return console.error(closeRoundResult.error)
+    if (closeRoundResult.fetching || !closeRoundResult.data) return
+    refetchEvent({ requestPolicy: "network-only" })
+  }, [closeRoundResult, refetchEvent])
+
+  useEffect(() => {
     refetchEvent({ requestPolicy: "network-only" })
   }, [joinEventResult, refetchEvent])
 
@@ -88,6 +104,13 @@ export default function Event({
   useEffect(() => {
     refetchEvent({ requestPolicy: "network-only" })
   }, [setRegistrationResult, refetchEvent])
+
+  useEffect(() => {
+    if (generateMatchesResult.error)
+      return console.error(generateMatchesResult.error)
+    if (generateMatchesResult.fetching || !generateMatchesResult.data) return
+    refetchEvent({ requestPolicy: "network-only" })
+  }, [generateMatchesResult, refetchEvent])
 
   const { fetching, data, error } = eventQueryResult
   const { myProfile } = myProfileResult.data || {
@@ -120,6 +143,13 @@ export default function Event({
     }).catch(err => console.error(err))
   }
 
+  const handleCloseRound = ({ round }) => {
+    closeRound({
+      roundID: round.id,
+      eventID: id,
+    }).catch(err => console.error(err))
+  }
+
   const handleAddMatch = ({ round }) => {
     setSelectedRound(round)
     setAddMatchIsOpen(true)
@@ -134,6 +164,13 @@ export default function Event({
     refetchEvent()
     setSelectedRound(null)
     setAddMatchIsOpen(false)
+  }
+
+  const handleGenerateMatches = ({ round }) => {
+    generateMatches({
+      eventID: id,
+      roundID: round.id,
+    })
   }
 
   const handleSetSelectedMatch = ({ match, round }) => {
@@ -206,6 +243,14 @@ export default function Event({
           />
         )}
 
+        {event && (
+          <EventStatsModal
+            event={event}
+            open={showStats}
+            onClose={() => setShowStats(false)}
+          />
+        )}
+
         <Grid item xs={9}>
           <Typography variant="h2" component="h1">
             {event.name}
@@ -240,8 +285,10 @@ export default function Event({
             days={event.days}
             onAddDay={handleAddDay}
             onAddRound={handleAddRound}
+            onCloseRound={handleCloseRound}
             onAddMatch={handleAddMatch}
             setSelectedMatch={handleSetSelectedMatch}
+            onGenerateMatches={handleGenerateMatches}
           />
         </Grid>
 
@@ -255,6 +302,7 @@ export default function Event({
             onAddPlayer={() => handleAddPlayer()}
             onRegister={handleRegister}
             onLeave={handleLeave}
+            onShowStats={() => setShowStats(true)}
             onRegistrationChange={registrationType =>
               handleRegistrationChange(registrationType)
             }

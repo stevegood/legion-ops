@@ -16,6 +16,8 @@ func updateMigration(db *gorm.DB) error {
 		&user.User{},
 		&event.Event{},
 		&event.Player{},
+		&event.PlayerStats{},
+		&event.PlayerOpponent{},
 		&event.Day{},
 		&event.Round{},
 		&event.Match{},

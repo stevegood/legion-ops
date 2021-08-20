@@ -2,7 +2,6 @@ package resolvers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -47,10 +46,6 @@ func (r *queryResolver) Event(ctx context.Context, id string) (*models.Event, er
 	}
 
 	eventOut := mapper.GQLEvent(&dbEvent)
-
-	j, _ := json.Marshal(eventOut)
-	log.Println(string(j))
-
 	return eventOut, err
 }
 
@@ -97,6 +92,36 @@ func (r *queryResolver) Events(ctx context.Context, userID *string, max *int, ev
 	})
 
 	return records, err
+}
+
+func (r queryResolver) EventPlayerStats(ctx context.Context, eventID string) ([]*models.PlayerStats, error) {
+	var playerStats []*models.PlayerStats
+	db := data.NewDB(r.ORM)
+	// get the players
+	players, err := data.GetPlayers(eventID, db)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, player := range players {
+		// get the player stats
+		stats, err := data.GetPlayerStats(player, db)
+		if err != nil {
+			return nil, err
+		}
+
+		playerStats = append(playerStats, &models.PlayerStats{
+			ID:           stats.ID.String(),
+			Player:       mapper.GQLPlayer(player),
+			TotalMov:     int(stats.TotalMOV),
+			AverageMov:   int(stats.AverageMOV),
+			TotalVp:      int(stats.TotalMOV),
+			TotalWins:    int(stats.TotalWins),
+			TimesBlue:    int(stats.TimesBlue),
+			TotalMatches: int(stats.TotalMatches),
+		})
+	}
+	return playerStats, nil
 }
 
 // Mutation
@@ -342,7 +367,7 @@ func (r *mutationResolver) AddPlayer(ctx context.Context, input models.AddPlayer
 	dbUser := middlewares.UserInContext(ctx)
 	if dbUser.Username == "" {
 		// username cannot be blank, return an error
-		return nil, errors.New("cannot create day, valid user not supplied")
+		return nil, errors.New("cannot add player, valid user not supplied")
 	}
 
 	dbEvent, err := data.GetEventWithID(input.EventID, data.NewDB(r.ORM))
@@ -446,6 +471,32 @@ func (r *mutationResolver) CreateRound(ctx context.Context, roundInput models.Ro
 	return mapper.GQLRound(&newRound), nil
 }
 
+func (r *mutationResolver) CloseRound(ctx context.Context, roundID, eventID string) (bool, error) {
+	// check authorization against event ownership
+	dbUser := middlewares.UserInContext(ctx)
+	if dbUser.Username == "" {
+		// username cannot be blank, return an error
+		return false, errors.New("cannot close round, valid user not supplied")
+	}
+
+	dbEvent, err := data.GetEventWithID(eventID, data.NewDB(r.ORM))
+	if err != nil {
+		return false, err
+	}
+
+	if dbEvent.Organizer.ID != dbUser.ID {
+		log.Println(dbEvent.Organizer.Username, dbUser.Username)
+		return false, fmt.Errorf("account is not authorized to modify event")
+	}
+
+	round, err := data.CloseRound(roundID, r.ORM)
+	if err != nil {
+		return false, err
+	}
+
+	return round.Closed, nil
+}
+
 func (r *mutationResolver) DeleteRound(ctx context.Context, roundID, eventID string) (bool, error) {
 	// check authorization against event ownership
 	dbUser := middlewares.UserInContext(ctx)
@@ -546,4 +597,36 @@ func (r *mutationResolver) DeleteMatch(ctx context.Context, matchID, eventID str
 
 func (r *mutationResolver) ReportMatchResults(ctx context.Context, input *models.MatchResultInput, matchID string) (*models.Match, error) {
 	return nil, nil
+}
+
+// generateMatches(roundID: ID!): [Match]!
+func (r *mutationResolver) GenerateMatches(ctx context.Context, eventID, roundID string) ([]*models.Match, error) {
+	// check authorization against event ownership
+	dbUser := middlewares.UserInContext(ctx)
+	if dbUser.Username == "" {
+		// username cannot be blank, return an error
+		return nil, errors.New("cannot generate matches, valid user not supplied")
+	}
+
+	dbEvent, err := data.GetEventWithID(eventID, data.NewDB(r.ORM))
+	if err != nil {
+		return nil, err
+	}
+
+	if dbEvent.Organizer.ID != dbUser.ID {
+		log.Println(dbEvent.Organizer.Username, dbUser.Username)
+		return nil, fmt.Errorf("account is not authorized to modify event")
+	}
+
+	matches, err := data.GenerateMatchPairings(eventID, roundID, r.ORM)
+	if err != nil {
+		return nil, err
+	}
+
+	var matchesOut []*models.Match
+	for _, match := range matches {
+		matchesOut = append(matchesOut, mapper.GQLMatch(&match))
+	}
+
+	return matchesOut, nil
 }

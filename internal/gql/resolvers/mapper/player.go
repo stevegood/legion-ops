@@ -12,7 +12,6 @@ func GQLPlayer(p *event.Player) *models.Player {
 		log.Println("player is nil")
 		return nil
 	}
-	log.Printf("player %s (%v)", p.Name, p.ID)
 	return &models.Player{
 		ID:   p.ID.String(),
 		Name: p.Name,

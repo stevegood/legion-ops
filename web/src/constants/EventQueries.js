@@ -45,6 +45,7 @@ export const EVENT_QUERY = gql`
         rounds {
           id
           counter
+          closed
           matches {
             id
             player1 {
@@ -118,5 +119,23 @@ export const ALL_EVENTS_QUERY = gql`
 export const CAN_MODIFY_QUERY = gql`
   query CanModifyEvent($id: ID!) {
     canModifyEvent(id: $id)
+  }
+`
+
+export const EVENT_PLAYER_STATS_QUERY = gql`
+  query EventPlayerStats($eventID: ID!) {
+    eventPlayerStats(eventID: $eventID) {
+      id
+      player {
+        id
+        name
+      }
+      totalMOV
+      averageMOV
+      totalVP
+      totalWins
+      timesBlue
+      totalMatches
+    }
   }
 `
