@@ -993,40 +993,39 @@ func GenerateMatchPairings(eventID, roundID string, o *orm.ORM) ([]event.Match, 
 		}
 
 		// get player stats for each player in the event
+		sql := `
+		SELECT *
+		FROM player_stats
+		WHERE player_id in (
+				select id from players where event_id = ?
+		)
+		ORDER BY total_wins DESC
+		`
 		var stats []event.PlayerStats
+
 		err = tx.
-			Where(
-				"player_id in (?)",
-				tx.
-					Table("players").
-					Where("event_id = ?", eventID).
-					Select("id"),
-			).
-			Order("total_wins asc").
-			Preload("Player").
-			Find(&stats).
+			Raw(sql, eventID).
+			Scan(&stats).
 			Error
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
-		// split the players into two lists (alternating)
-		var playersA []event.Player
-		var playersB []event.Player
 
-		for i, pStats := range stats {
-			player, _ := GetPlayer(pStats.PlayerID.String(), tx)
-			if i%2 == 1 {
-				playersA = append(playersA, player)
-			} else {
-				playersB = append(playersB, player)
+		var players []event.Player
+		for _, s := range stats {
+			player, err := GetPlayer(s.PlayerID.String(), tx)
+			if err != nil {
+				return err
 			}
+
+			players = append(players, player)
 		}
 
-		// if playersB is shorter than playersA we need to create a "Bye Player"
+		// if players is an odd length we need to create a "Bye Player"
 		// and add them to playersB.
 		byePlayerName := "Bye Player"
-		if len(playersA) > len(playersB) {
+		if len(players)%2 != 0 {
 			byePlayer := event.Player{
 				Name:    byePlayerName,
 				EventID: uuid.FromStringOrNil(eventID),
@@ -1038,43 +1037,56 @@ func GenerateMatchPairings(eventID, roundID string, o *orm.ORM) ([]event.Match, 
 				return err
 			}
 
-			playersB = append(playersB, byePlayer)
+			players = append(players, byePlayer)
 		}
 
-		// generate a pair for each player in list a (from list b)
-		for i := 0; i < len(playersA); i++ {
-			p1 := playersA[i]
-			p2 := playersB[i]
+		assigned := map[uuid.UUID]uuid.UUID{}
+		// loop through the available players
+		for _, player := range players {
+			// loop through the players again to find an opponent
+			for _, opponent := range players {
+				// if opponent is the player then skip
+				isSelf := player.ID == opponent.ID
+				_, opponentAssigned := assigned[opponent.ID]
+				_, playerAssigned := assigned[player.ID]
 
-			// create a match
-			m := event.Match{
-				Player1:   p1,
-				Player1ID: p1.ID,
-				Player2:   p2,
-				Player2ID: p2.ID,
-				Round:     round,
-				RoundID:   round.ID,
+				if !isSelf && !opponentAssigned && !playerAssigned {
+					// has this player already played the opponent?
+					playedBefore := hasPlayedBefore(player, opponent, tx)
+
+					if !playedBefore {
+						// looks like a valid pairing!
+						// create a match
+						m := event.Match{
+							Player1: player,
+							Player2: opponent,
+							Round:   round,
+						}
+
+						if player.Name == byePlayerName {
+							m.Bye = &opponent
+						}
+
+						if opponent.Name == byePlayerName {
+							m.Bye = &player
+						}
+
+						// save the match
+						err := tx.Save(&m).Error
+						if err != nil {
+							tx.Rollback()
+							return err
+						}
+
+						// map the assignment for future checks
+						assigned[opponent.ID] = player.ID
+						assigned[player.ID] = opponent.ID
+
+						// add the match to the slice
+						generatedMatches = append(generatedMatches, m)
+					}
+				}
 			}
-
-			if p1.Name == byePlayerName {
-				m.Bye = &p2
-				m.ByeID = &p2.ID
-			}
-
-			if p2.Name == byePlayerName {
-				m.Bye = &p1
-				m.ByeID = &p1.ID
-			}
-
-			// save the match
-			err := tx.Save(&m).Error
-			if err != nil {
-				tx.Rollback()
-				return err
-			}
-
-			// add the match to the slice
-			generatedMatches = append(generatedMatches, m)
 		}
 
 		return nil
@@ -1121,6 +1133,7 @@ func CloseRound(id string, o *orm.ORM) (*event.Round, error) {
 					int64(match.Player1VictoryPoints),
 					match.Winner.ID == match.Player1.ID,
 					match.Blue.ID == match.Player1.ID,
+					match.Player2,
 					tx,
 				)
 
@@ -1137,12 +1150,24 @@ func CloseRound(id string, o *orm.ORM) (*event.Round, error) {
 					int64(match.Player2VictoryPoints),
 					match.Winner.ID == match.Player2.ID,
 					match.Blue.ID == match.Player2.ID,
+					match.Player1,
 					tx,
 				)
 
 				if err != nil {
 					tx.Rollback()
 					log.Printf("error updating p2 stats %v", err)
+					return err
+				}
+
+				// log who the players played against
+				if err = savePlayerOpponent(match.Player1, match.Player2, tx); err != nil {
+					tx.Rollback()
+					return err
+				}
+
+				if err = savePlayerOpponent(match.Player2, match.Player1, tx); err != nil {
+					tx.Rollback()
 					return err
 				}
 			}
@@ -1158,7 +1183,7 @@ func CloseRound(id string, o *orm.ORM) (*event.Round, error) {
 	return &round, nil
 }
 
-func updatePlayerStats(player event.Player, mov, vp int64, winner, blue bool, db *gorm.DB) error {
+func updatePlayerStats(player event.Player, mov, vp int64, winner, blue bool, opponent event.Player, db *gorm.DB) error {
 	var stats event.PlayerStats
 	err := db.
 		Where("player_id = ?", player.ID.String()).
@@ -1192,4 +1217,27 @@ func updatePlayerStats(player event.Player, mov, vp int64, winner, blue bool, db
 	err = db.Save(&stats).Error
 
 	return err
+}
+
+func savePlayerOpponent(player, opponent event.Player, db *gorm.DB) error {
+	po := event.PlayerOpponent{
+		Player:   player,
+		Opponent: opponent,
+	}
+
+	return db.Save(&po).Error
+}
+
+func hasPlayedBefore(player, opponent event.Player, db *gorm.DB) bool {
+	var pos []event.PlayerOpponent
+
+	db.Where("player_id = ?", player.ID.String()).Find(&pos)
+
+	for _, po := range pos {
+		if po.OpponentID == opponent.ID {
+			return true
+		}
+	}
+
+	return false
 }

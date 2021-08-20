@@ -12,6 +12,7 @@ import { EVENT_QUERY } from "constants/EventQueries"
 import {
   CLOSE_ROUND,
   CREATE_ROUND,
+  GENERATE_MATCHES,
   JOIN_EVENT,
   LEAVE_EVENT,
   PUBLISH_EVENT,
@@ -56,6 +57,9 @@ export default function Event({
   // mutation for closing a round
   const [closeRoundResult, closeRound] = useMutation(CLOSE_ROUND)
 
+  // mutation for generating matches
+  const [generateMatchesResult, generateMatches] = useMutation(GENERATE_MATCHES)
+
   // mutation for publishing an event
   const [publishEventResult, publishEvent] = useMutation(PUBLISH_EVENT)
 
@@ -98,6 +102,13 @@ export default function Event({
   useEffect(() => {
     refetchEvent({ requestPolicy: "network-only" })
   }, [setRegistrationResult, refetchEvent])
+
+  useEffect(() => {
+    if (generateMatchesResult.error)
+      return console.error(generateMatchesResult.error)
+    if (generateMatchesResult.fetching || !generateMatchesResult.data) return
+    refetchEvent({ requestPolicy: "network-only" })
+  }, [generateMatchesResult, refetchEvent])
 
   const { fetching, data, error } = eventQueryResult
   const { myProfile } = myProfileResult.data || {
@@ -151,6 +162,13 @@ export default function Event({
     refetchEvent()
     setSelectedRound(null)
     setAddMatchIsOpen(false)
+  }
+
+  const handleGenerateMatches = ({ round }) => {
+    generateMatches({
+      eventID: id,
+      roundID: round.id,
+    })
   }
 
   const handleSetSelectedMatch = ({ match, round }) => {
@@ -260,6 +278,7 @@ export default function Event({
             onCloseRound={handleCloseRound}
             onAddMatch={handleAddMatch}
             setSelectedMatch={handleSetSelectedMatch}
+            onGenerateMatches={handleGenerateMatches}
           />
         </Grid>
 

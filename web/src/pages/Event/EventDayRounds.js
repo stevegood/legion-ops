@@ -10,6 +10,7 @@ import {
 } from "@material-ui/core"
 import AddIcon from "@material-ui/icons/Add"
 import DoneAllIcon from "@material-ui/icons/DoneAll"
+import PeopleIcon from "@material-ui/icons/People"
 import Matches from "./Matches"
 
 export default function EventDayRounds({
@@ -20,6 +21,7 @@ export default function EventDayRounds({
   onAddRound,
   onAddMatch,
   onCloseRound,
+  onGenerateMatches,
   setSelectedMatch,
 }) {
   const [sortedRounds] = useState(
@@ -61,6 +63,18 @@ export default function EventDayRounds({
                       onClick={() => onAddMatch({ round })}
                     >
                       <AddIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Grid>
+
+                <Grid item>
+                  <Tooltip title={`Generate matches in Round ${i + 1}`}>
+                    <IconButton
+                      disabled={round.closed || round.matches.length > 0}
+                      size="small"
+                      onClick={() => onGenerateMatches({ round })}
+                    >
+                      <PeopleIcon />
                     </IconButton>
                   </Tooltip>
                 </Grid>
