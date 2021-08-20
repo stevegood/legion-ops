@@ -3,6 +3,7 @@ package data
 import (
 	"errors"
 	"log"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -1013,17 +1014,30 @@ func GenerateMatchPairings(eventID, roundID string, o *orm.ORM) ([]event.Match, 
 		}
 
 		var players []event.Player
-		for _, s := range stats {
-			player, err := GetPlayer(s.PlayerID.String(), tx)
+		if len(stats) == 0 {
+			// there were no recorded stats (which means no matches) so fall back random assignment
+			// create a temporary place to hold players so we can shuffle them
+			var p []event.Player
+			err = tx.Where("event_id = ?", eventID).Find(&p).Error
 			if err != nil {
 				return err
 			}
+			rand.Seed(time.Now().UnixNano())
+			rand.Shuffle(len(p), func(i, j int) { p[i], p[j] = p[j], p[i] })
+			// assign the random players
+			players = p
+		} else {
+			for _, s := range stats {
+				player, err := GetPlayer(s.PlayerID.String(), tx)
+				if err != nil {
+					return err
+				}
 
-			players = append(players, player)
+				players = append(players, player)
+			}
 		}
 
 		// if players is an odd length we need to create a "Bye Player"
-		// and add them to playersB.
 		byePlayerName := "Bye Player"
 		if len(players)%2 != 0 {
 			byePlayer := event.Player{
